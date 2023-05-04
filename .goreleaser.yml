@@ -13,12 +13,12 @@ builds:
       - windows
       - darwin
     goarch:
-      - arm
       - amd64
       - arm64
-    goarm:
-      - 6
-      - 7
+      #- arm
+      #    goarm:
+      #- 6
+      #- 7
     main: ./
     binary: cloudflared-controller
     tags:
@@ -76,30 +76,30 @@ dockers:
   - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - --label=org.opencontainers.image.licenses=APL2
 
-- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7"]
-  dockerfile: Dockerfile
-  use: buildx
-  build_flag_templates:
-  - --platform=linux/arm/v7
-  - --label=org.opencontainers.image.title={{ .ProjectName }}
-  - --label=org.opencontainers.image.description={{ .ProjectName }}
-  - --label=org.opencontainers.image.url=https://github.com/mabels/{{ .ProjectName }}
-  - --label=org.opencontainers.image.source=https://github.com/mabels/{{ .ProjectName }}
-  - --label=org.opencontainers.image.version={{ .Version }}
-  - --label=org.opencontainers.image.created={{ .CommitTimestamp }}
-  - --label=org.opencontainers.image.revision={{ .FullCommit }}
-  - --label=org.opencontainers.image.licenses=APL2
+    #- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7"]
+    #  dockerfile: Dockerfile
+    #  use: buildx
+    #  build_flag_templates:
+    #  - --platform=linux/arm/v7
+    #  - --label=org.opencontainers.image.title={{ .ProjectName }}
+    #  - --label=org.opencontainers.image.description={{ .ProjectName }}
+    #  - --label=org.opencontainers.image.url=https://github.com/mabels/{{ .ProjectName }}
+    #  - --label=org.opencontainers.image.source=https://github.com/mabels/{{ .ProjectName }}
+    #  - --label=org.opencontainers.image.version={{ .Version }}
+    #  - --label=org.opencontainers.image.created={{ .CommitTimestamp }}
+    #  - --label=org.opencontainers.image.revision={{ .FullCommit }}
+    #  - --label=org.opencontainers.image.licenses=APL2
 
 docker_manifests:
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}
   image_templates:
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7
+    #  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:latest
   image_templates:
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7
+    #  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8
 
 

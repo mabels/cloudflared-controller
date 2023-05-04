@@ -1,5 +1,5 @@
 FROM cloudflare/cloudflared:2023.5.0
 
-COPY ./neckless /bin/neckless
+COPY ./cloudflared-controller /bin/cloudflared-controller
 
-ENTRYPOINT ["neckless"]
+ENTRYPOINT ["cloudflared-controller"]

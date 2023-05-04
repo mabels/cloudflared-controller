@@ -1,11 +1,11 @@
 package tunnel
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/cloudflare/cloudflared/cfapi"
@@ -23,18 +23,59 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientgo_corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type UpsertTunnelParams struct {
-	Name              *string
-	TunnelID          *uuid.UUID
-	ExternalName      string
-	Namespace         string
-	SecretName        string
-	DefaultSecretName bool
-	Ingress           *netv1.Ingress
+	Name         *string
+	TunnelID     *uuid.UUID
+	ExternalName string
+	Namespace    string
+	// SecretName        string
+	// DefaultSecretName bool
+	Labels      map[string]string
+	Annotations map[string]string
+	// Ingress           *netv1.Ingress
 	// rs                cfapi.ResourceContainer
+}
+
+var reSanitze = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+
+type K8SResourceName struct {
+	Namespace string
+	Name      string
+	FQDN      string
+}
+
+func FromFQDN(fqdn string, ns string) K8SResourceName {
+	parts := strings.Split(fqdn, "/")
+	name := parts[0]
+	if len(parts) > 1 {
+		ns = parts[0]
+		name = parts[1]
+	}
+	return K8SResourceName{
+		Namespace: ns,
+		Name:      name,
+		FQDN:      fqdn,
+	}
+}
+
+func (tp UpsertTunnelParams) buildK8SResourceName(prefix string) K8SResourceName {
+	name := fmt.Sprintf("%s.%s", prefix, reSanitze.ReplaceAllString(*tp.Name, "-"))
+	return K8SResourceName{
+		Namespace: tp.Namespace,
+		Name:      name,
+		FQDN:      fmt.Sprintf("%s/%s", tp.Namespace, name),
+	}
+}
+
+func (tp UpsertTunnelParams) K8SConfigMapName() K8SResourceName {
+	return tp.buildK8SResourceName("cfd-tunnel-cfg")
+}
+
+func (tp UpsertTunnelParams) K8SSecretName() K8SResourceName {
+	return tp.buildK8SResourceName("cfd-tunnel-key")
 }
 
 type CFTunnelSecret struct {
@@ -63,8 +104,8 @@ func GetTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*cfapi.Tunn
 		}
 	}
 	if foundTs == nil {
-		err := fmt.Errorf("No tunnel found for name %v", tp.Name)
-		cfc.Log.Error().Err(err).Any("ts", ts).Msg("No tunnels found")
+		err := fmt.Errorf("No tunnel found for name %v", *tp.Name)
+		// cfc.Log.Error().Err(err).Any("ts", ts).Msg("No tunnels found")
 		return nil, err
 	}
 	cfc.Log.Debug().Msgf("Found tunnel: %s/%s", foundTs.ID, foundTs.Name)
@@ -74,8 +115,12 @@ func GetTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*cfapi.Tunn
 	return &twt, nil
 }
 
-func GetTunnelSecret(log *zerolog.Logger, secret *corev1.Secret) (CFTunnelSecret, error) {
-	credentialsJson := secret.Data["credentials.json"]
+func GetTunnelSecret(log *zerolog.Logger, tp UpsertTunnelParams, secret *corev1.Secret) (CFTunnelSecret, error) {
+	credentialsJson, ok := secret.Data["credentials.json"]
+	if !ok {
+		log.Error().Str("name", tp.K8SSecretName().FQDN).Msg("Secret does not contain credentials.json")
+		return CFTunnelSecret{}, fmt.Errorf("Secret %s does not contain credentials.json", tp.K8SSecretName().FQDN)
+	}
 	// credentialsJson := make([]byte, base64.StdEncoding.DecodedLen(len(credentialsBytes)))
 	// n, err := base64.StdEncoding.Decode(credentialsJson, credentialsBytes)
 	// if err != nil {
@@ -85,20 +130,20 @@ func GetTunnelSecret(log *zerolog.Logger, secret *corev1.Secret) (CFTunnelSecret
 	var cts CFTunnelSecret
 	err := json.Unmarshal(credentialsJson, &cts)
 	if err != nil {
-		log.Error().Err(err).Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Str("secretJson", string(credentialsJson)).Msg("Error unmarshal credentials")
+		log.Error().Err(err).Str("name", tp.K8SSecretName().FQDN).Str("secretJson", string(credentialsJson)).Msg("Error unmarshal credentials")
 		return CFTunnelSecret{}, err
 	}
 	return cts, nil
 }
 
-func MatchK8SSecret(cfc *controller.CFController, secretClient clientgo_corev1.SecretInterface, tunnelId string, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
-	secret, err := secretClient.Get(context.Background(), tp.SecretName, metav1.GetOptions{})
+func MatchK8SSecret(cfc *controller.CFController, tunnelId string, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
+	secret, err := cfc.Rest.K8s.CoreV1().Secrets(tp.K8SSecretName().Namespace).Get(cfc.Context, tp.K8SSecretName().Name, metav1.GetOptions{})
 	if err != nil {
-		cfc.Log.Error().Err(err).Str("secretName", tp.SecretName).Msg("Secret not found")
+		cfc.Log.Error().Err(err).Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found")
 		return nil, err
 	}
 
-	cts, err := GetTunnelSecret(cfc.Log, secret)
+	cts, err := GetTunnelSecret(cfc.Log, tp, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +155,6 @@ func MatchK8SSecret(cfc *controller.CFController, secretClient clientgo_corev1.S
 }
 
 func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
-	secretClient := cfc.Rest.K8s.CoreV1().Secrets(tp.Namespace)
 	ts, err := GetTunnel(cfc, tp)
 	var cts *CFTunnelSecret
 	if err != nil && strings.HasPrefix(err.Error(), "No tunnel found for name ") {
@@ -123,7 +167,7 @@ func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunne
 		byteSecret := make([]byte, 32)
 		rand.Read(byteSecret)
 		secretStr = base64.StdEncoding.EncodeToString(byteSecret)
-		cfc.Log.Debug().Str("secretName", tp.SecretName).Msg("Secret not found, creating new secret")
+		cfc.Log.Debug().Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found, creating new secret")
 		ts, err = cfc.Rest.Cf.CreateTunnel(*tp.Name, byteSecret)
 		if err != nil {
 			cfc.Log.Error().Str("name", *tp.Name).Err(err).Msg("Error creating tunnel")
@@ -135,42 +179,35 @@ func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunne
 			TunnelSecret: secretStr,
 			TunnelID:     ts.ID,
 		}
-
 		tp.TunnelID = &ts.ID
-
 		ctsBytes, err := json.Marshal(cts)
 		if err != nil {
 			cfc.Log.Error().Err(err).Str("name", *tp.Name).Msg("Error marshalling credentials")
 			return nil, err
 		}
 
-		_, err = secretClient.Get(context.Background(), tp.SecretName, metav1.GetOptions{})
+		secretClient := cfc.Rest.K8s.CoreV1().Secrets(tp.K8SSecretName().Namespace)
+		_, err = secretClient.Get(cfc.Context, tp.K8SConfigMapName().Name, metav1.GetOptions{})
+		k8sSecret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        tp.K8SSecretName().Name,
+				Namespace:   tp.K8SConfigMapName().Namespace,
+				Annotations: cfAnnotations(tp.Annotations, *tp.Name),
+				Labels:      cfLabels(tp.Labels, cfc, ts.ID.String()),
+			},
+			Data: map[string][]byte{
+				"credentials.json": ctsBytes,
+			},
+		}
+
 		if err != nil {
-			secret, err := secretClient.Create(context.Background(), &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tp.SecretName,
-					Namespace: tp.Namespace,
-					Labels:    tp.Ingress.GetLabels(),
-				},
-				Data: map[string][]byte{
-					"credentials.json": ctsBytes,
-				},
-			}, metav1.CreateOptions{})
+			secret, err := secretClient.Create(cfc.Context, &k8sSecret, metav1.CreateOptions{})
 			if err != nil {
 				cfc.Log.Error().Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Err(err).Msg("Error creating secret")
 				return nil, err
 			}
 		} else {
-			secret, err := secretClient.Update(context.Background(), &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tp.SecretName,
-					Namespace: tp.Namespace,
-					Labels:    tp.Ingress.GetLabels(),
-				},
-				Data: map[string][]byte{
-					"credentials.json": ctsBytes,
-				},
-			}, metav1.UpdateOptions{})
+			secret, err := secretClient.Update(cfc.Context, &k8sSecret, metav1.UpdateOptions{})
 			if err != nil {
 				cfc.Log.Error().Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Err(err).Msg("Error update secret")
 				return nil, err
@@ -182,9 +219,9 @@ func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunne
 	} else {
 		tp.Name = &ts.Name
 		tp.TunnelID = &ts.ID
-		cts, err = MatchK8SSecret(cfc, secretClient, ts.ID.String(), tp)
+		cts, err = MatchK8SSecret(cfc, ts.ID.String(), tp)
 		if err != nil {
-			cfc.Log.Error().Str("tunnelId", ts.ID.String()).Str("secretName", tp.SecretName).Err(err).Msg("Error matching secret")
+			cfc.Log.Error().Str("tunnelId", ts.ID.String()).Str("secretName", tp.K8SConfigMapName().FQDN).Err(err).Msg("Error matching secret")
 			return nil, err
 		}
 		cfc.Log.Debug().Str("name", *tp.Name).Str("id", ts.ID.String()).Err(err).Msg("found tunnel")
@@ -201,7 +238,30 @@ func GetTunnelNameFromIngress(ingress *netv1.Ingress) *string {
 	return &ingress.Name
 }
 
-func WriteCloudflaredConfig(cfc *controller.CFController, tp UpsertTunnelParams, cts *CFTunnelSecret) error {
+func cfAnnotations(annos map[string]string, tunnelName string) map[string]string {
+	ret := make(map[string]string)
+	if annos == nil {
+		for k, v := range annos {
+			ret[k] = v
+		}
+	}
+	ret[config.AnnotationCloudflareTunnelName] = tunnelName
+	return ret
+}
+
+func cfLabels(labels map[string]string, cfc *controller.CFController, tunnelId string) map[string]string {
+	ret := make(map[string]string)
+	if labels == nil {
+		for k, v := range labels {
+			ret[k] = v
+		}
+	}
+	ret[config.LabelCloudflaredControllerVersion] = cfc.Cfg.Version
+	ret[config.LabelCloudflaredControllerTunnelId] = tunnelId
+	return ret
+}
+
+func WriteCloudflaredConfig(cfc *controller.CFController, tp UpsertTunnelParams, cts *CFTunnelSecret, uid types.UID, cfcis []config.CFConfigIngress) error {
 	_, err := cfc.Rest.Cf.RouteTunnel(cts.TunnelID, cfapi.NewDNSRoute(tp.ExternalName, true))
 	if err != nil && !strings.HasPrefix(err.Error(), "Failed to add route: code: 1003") {
 		cfc.Log.Error().Str("name", *tp.Name).Str("externalName", tp.ExternalName).Err(err).Msg("Error routing tunnel")
@@ -212,55 +272,25 @@ func WriteCloudflaredConfig(cfc *controller.CFController, tp UpsertTunnelParams,
 	// 	log.Error().Str("name", tp.name).Err(err).Msg("Marshaling credentials")
 	// 	return err
 	// }
-	credFile := fmt.Sprintf("%s.json", cts.TunnelID.String())
+	// credFile := fmt.Sprintf("%s.json", cts.TunnelID.String())
 	// err = os.WriteFile(credFile, jsonTunnelSecret, 0600)
 	// if err != nil {
 	// 	log.Error().Str("filename", credFile).Err(err).Msg("Writing credentials file")
 	// 	return err
 	// }
 
-	cfcis := []config.CFConfigIngress{
-		{
-			Service: "http_status:404",
-		},
-	}
-	for _, rule := range tp.Ingress.Spec.Rules {
-		if rule.HTTP == nil {
-			cfc.Log.Warn().Str("name", *tp.Name).Str("host", rule.Host).Msg("Skipping non-http ingress rule")
-			continue
-		}
-		schema := "http"
-		for _, tls := range tp.Ingress.Spec.TLS {
-			for _, thost := range tls.Hosts {
-				if thost == rule.Host {
-					schema = "https"
-					break
-				}
-			}
-		}
-		for _, path := range rule.HTTP.Paths {
-			cci := config.CFConfigIngress{
-				Hostname: tp.ExternalName,
-				Path:     path.Path,
-				Service:  fmt.Sprintf("%s://%s", schema, rule.Host),
-				OriginRequest: &config.CFConfigOriginRequest{
-					HttpHostHeader: rule.Host,
-				},
-			}
-			cfcis = append([]config.CFConfigIngress{cci}, cfcis...)
-		}
-	}
+	// cfcis = append(cfcis, config.CFConfigIngress{Service: "http_status:404"})
 
-	igss := config.CFConfigYaml{
-		Tunnel:          cts.TunnelID.String(),
-		CredentialsFile: credFile,
-		Ingress:         []config.CFConfigIngress{},
-	}
-	yConfigYamlByte, err := yaml.Marshal(igss)
-	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Error marshaling ingress")
-		return err
-	}
+	// igss := config.CFConfigYaml{
+	// 	Tunnel:          cts.TunnelID.String(),
+	// 	CredentialsFile: credFile,
+	// 	Ingress:         []config.CFConfigIngress{},
+	// }
+	// yConfigYamlByte, err := yaml.Marshal(igss)
+	// if err != nil {
+	// 	cfc.Log.Error().Err(err).Msg("Error marshaling ingress")
+	// 	return err
+	// }
 
 	yCFConfigIngressByte, err := yaml.Marshal(cfcis)
 	if err != nil {
@@ -272,28 +302,30 @@ func WriteCloudflaredConfig(cfc *controller.CFController, tp UpsertTunnelParams,
 	// 	log.Error().Err(err).Msg("can't write config.yml")
 	// 	return err
 	// }
-	cmName := fmt.Sprintf("cf-tunnel-cfg.%s", cts.TunnelID.String())
+
+	tp.Annotations = map[string]string{
+		config.AnnotationCloudflareTunnelKeySecret: tp.K8SSecretName().FQDN,
+	}
+
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmName,
-			Namespace: tp.Namespace,
-			Labels:    tp.Ingress.GetLabels(),
-			Annotations: map[string]string{
-				config.AnnotationCloudflareTunnelId:   cts.TunnelID.String(),
-				config.AnnotationCloudflareTunnelName: *tp.Name,
-			},
+			Name:        tp.K8SConfigMapName().Name,
+			Namespace:   tp.Namespace,
+			Labels:      cfLabels(tp.Labels, cfc, cts.TunnelID.String()),
+			Annotations: cfAnnotations(tp.Annotations, *tp.Name),
 		},
 		Data: map[string]string{
-			"config.yaml":                          string(yConfigYamlByte),
-			string(tp.Ingress.ObjectMeta.GetUID()): string(yCFConfigIngressByte),
+			// "config.yaml": string(yConfigYamlByte),
+			string(uid): string(yCFConfigIngressByte),
 		},
 	}
 
-	_, err = cfc.Rest.K8s.CoreV1().ConfigMaps(tp.Namespace).Get(context.Background(), cmName, metav1.GetOptions{})
+	client := cfc.Rest.K8s.CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
+	_, err = client.Get(cfc.Context, tp.K8SConfigMapName().Name, metav1.GetOptions{})
 	if err != nil {
-		_, err = cfc.Rest.K8s.CoreV1().ConfigMaps(tp.Namespace).Create(context.Background(), &cm, metav1.CreateOptions{})
+		_, err = client.Create(cfc.Context, &cm, metav1.CreateOptions{})
 	} else {
-		_, err = cfc.Rest.K8s.CoreV1().ConfigMaps(tp.Namespace).Update(context.Background(), &cm, metav1.UpdateOptions{})
+		_, err = client.Update(cfc.Context, &cm, metav1.UpdateOptions{})
 	}
 
 	// 	tunnel: 82a2a30a-e48f-401a-b6be-e595f0ba47e2
