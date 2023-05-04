@@ -19,6 +19,15 @@ CLOUDFLARE_API_TOKEN=<from your CF Console>
 CLOUDFLARE_ACCOUNT_ID=<from your CF website>
 ```
 
+## Docker
+```sh
+docker run -v $HOME/.kube/config:/home/nonroot/.kube/config \
+   -e CLOUDFLARE_ACCOUNT_ID=<from your CF website> \
+   -e CLOUDFLARE_API_TOKEN=<from your CF Console> \
+   -e CLOUDFLARE_ZONE_ID=<from your CF website> \
+   -ti ghcr.io/mabels/cloudflared-controller
+```
+
 ## Sample ingress to make it work we need these both annotations
 ```
 metadata:

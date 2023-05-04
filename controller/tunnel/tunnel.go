@@ -328,32 +328,5 @@ func WriteCloudflaredConfig(cfc *controller.CFController, tp UpsertTunnelParams,
 		_, err = client.Update(cfc.Context, &cm, metav1.UpdateOptions{})
 	}
 
-	// 	tunnel: 82a2a30a-e48f-401a-b6be-e595f0ba47e2
-	// credentials-file: /Users/menabe/.cloudflared/82a2a30a-e48f-401a-b6be-e595f0ba47e2.json
-
-	// ingress:
-	//   - hostname: meno-test.codebar.world
-	//     service: https://hass-io-hh.adviser.com:443
-	//     originRequest:
-	//        httpHostHeader: hass-io-hh.adviser.com
-	//   - service: http_status:404
-
-	// tp.cfRestClient.UpdateTunnelConfiguration(context.Background(), &tp.rs, cfapi.TunnelConfigurationParams{
-	// 	TunnelID: ts.ID,
-	// 	Config: cfapi.TunnelConfiguration{
-	// 		Ingress: []cfapi.UnvalidatedIngressRule{
-	// 			cfapi.UnvalidatedIngressRule{
-	// 				Hostname: tp.hostname,
-	// 				Path:     "/",
-	// 				Service:  "https://hass-io-hh.adviser.com:443",
-	// 			},
-	// 		},
-	// 		// 	- hostname: meno-test.codebar.world
-	// 		// 	  service: https://hass-io-hh.adviser.com:443
-	// 		// 	  originRequest:
-	// 		// 	    httpHostHeader: hass-io-hh.adviser.com
-	// 		//   - service: http_status:404
-	// 	},
-	// })
 	return err
 }
