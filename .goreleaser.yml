@@ -10,8 +10,8 @@ builds:
 #      - freebsd
     goos:
       - linux
-      - windows
-      - darwin
+#      - windows
+#      - darwin
     goarch:
       - amd64
       - arm64
@@ -19,7 +19,7 @@ builds:
       #    goarm:
       #- 6
       #- 7
-    main: ./
+    main: ./main.go
     binary: cloudflared-controller
     tags:
       - release
@@ -51,6 +51,7 @@ dockers:
 - image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64"]
   use: buildx
   dockerfile: Dockerfile
+  goarch: amd64
   build_flag_templates:
   - --platform=linux/amd64
   - --label=org.opencontainers.image.title={{ .ProjectName }}
@@ -65,6 +66,7 @@ dockers:
 - image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
   dockerfile: Dockerfile
   use: buildx
+  goarch: arm64
   build_flag_templates:
   - --platform=linux/arm64/v8
   - --label=org.opencontainers.image.title={{ .ProjectName }}
@@ -75,20 +77,6 @@ dockers:
   - --label=org.opencontainers.image.created={{ .CommitTimestamp }}
   - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - --label=org.opencontainers.image.licenses=APL2
-
-    #- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7"]
-    #  dockerfile: Dockerfile
-    #  use: buildx
-    #  build_flag_templates:
-    #  - --platform=linux/arm/v7
-    #  - --label=org.opencontainers.image.title={{ .ProjectName }}
-    #  - --label=org.opencontainers.image.description={{ .ProjectName }}
-    #  - --label=org.opencontainers.image.url=https://github.com/mabels/{{ .ProjectName }}
-    #  - --label=org.opencontainers.image.source=https://github.com/mabels/{{ .ProjectName }}
-    #  - --label=org.opencontainers.image.version={{ .Version }}
-    #  - --label=org.opencontainers.image.created={{ .CommitTimestamp }}
-    #  - --label=org.opencontainers.image.revision={{ .FullCommit }}
-    #  - --label=org.opencontainers.image.licenses=APL2
 
 docker_manifests:
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}
