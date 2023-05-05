@@ -55,10 +55,10 @@ func (ri *runningInstance) buildCredentialsFile(cfc *controller.CFController, cm
 	return credfname, os.WriteFile(credfname, bytesCts, 0600)
 }
 
-func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) error {
+func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (*config.CFConfigYaml, error) {
 	tunnelId, found := cm.ObjectMeta.GetLabels()[config.LabelCloudflaredControllerTunnelId]
 	if !found {
-		return fmt.Errorf("missing label %s", config.LabelCloudflaredControllerTunnelId)
+		return nil, fmt.Errorf("missing label %s", config.LabelCloudflaredControllerTunnelId)
 	}
 	cfis := []config.CFConfigIngress{}
 	for _, rules := range cm.Data {
@@ -78,10 +78,10 @@ func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) e
 	}
 	yConfigYamlByte, err := yaml.Marshal(igss)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ri.configfname = path.Join(ri.currentDir, "config.yaml")
-	return os.WriteFile(ri.configfname, yConfigYamlByte, 0600)
+	return &igss, os.WriteFile(ri.configfname, yConfigYamlByte, 0600)
 }
 
 func (ri *runningInstance) Stop(cfc *controller.CFController) {
@@ -177,11 +177,22 @@ func (t *Tunnel) newRunningInstance(cfc *controller.CFController, cm *corev1.Con
 		ri.Stop(cfc)
 		return nil, err
 	}
-	err = ri.buildConfig(credfname, cm)
+	cfgYaml, err := ri.buildConfig(credfname, cm)
 	if err != nil {
 		log.Error().Err(err).Msg("error building config file")
 		ri.Stop(cfc)
 		return nil, err
+	}
+	for _, rule := range cfgYaml.Ingress {
+		if rule.Hostname == "" {
+			continue
+		}
+		uid, err := uuid.Parse(cfgYaml.Tunnel)
+		if err != nil {
+			log.Error().Err(err).Str("tunnelId", cfgYaml.Tunnel).Msg("error parsing tunnel id")
+			continue
+		}
+		RegisterCFDnsEndpoint(cfc, uid, rule.Hostname)
 	}
 	err = ri.Start(cfc)
 	if err != nil {

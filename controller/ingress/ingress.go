@@ -6,18 +6,61 @@ import (
 	"github.com/mabels/cloudflared-controller/controller"
 	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/mabels/cloudflared-controller/controller/tunnel"
-	"github.com/rs/zerolog/log"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-func directIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv1.Ingress) {
-	// cfc := _cfc.WithComponent("directIngress", func(cfc *controller.CFController) {
-	// 	log := cfc.Log.With().Str("ingress", ingress.Name).Logger()
-	// 	cfc.Log = &log
-	// })
+func classIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv1.Ingress) {
+	cfc := _cfc.WithComponent("classIngress", func(cfc *controller.CFController) {
+		log := cfc.Log.With().Str("ingress", ingress.Name).Logger()
+		cfc.Log = &log
+	})
 
+	annotations := ingress.GetAnnotations()
+	tp, ts, err := tunnel.PrepareTunnel(cfc, ingress.Namespace, annotations, ingress.GetLabels())
+	if err != nil {
+		return
+	}
+	cfcis := []config.CFConfigIngress{}
+	mapping := []tunnel.CFEndpointMapping{}
+	for _, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			cfc.Log.Warn().Str("host", rule.Host).Msg("Skipping non-http ingress rule")
+			continue
+		}
+		for _, path := range rule.HTTP.Paths {
+			port := ""
+			intPort := path.Backend.Service.Port.Number
+			if intPort != 0 {
+				port = fmt.Sprintf(":%d", intPort)
+			}
+			srvUrl := fmt.Sprintf("http://%s%s", path.Backend.Service.Name, port)
+			mapping = append(mapping, tunnel.CFEndpointMapping{
+				External: rule.Host,
+				Internal: srvUrl,
+			})
+			err = tunnel.RegisterCFDnsEndpoint(cfc, *tp.TunnelID, rule.Host)
+			if err != nil {
+				cfc.Log.Error().Err(err).Str("host", rule.Host).Msg("Failed to register CF DNS endpoint")
+				continue
+			}
+			cci := config.CFConfigIngress{
+				Hostname: rule.Host,
+				Path:     path.Path,
+				Service:  srvUrl,
+				OriginRequest: &config.CFConfigOriginRequest{
+					HttpHostHeader: rule.Host,
+				},
+			}
+			cfcis = append(cfcis, cci)
+		}
+	}
+	err = tunnel.WriteCloudflaredConfig(cfc, tp, ts, ingress.GetUID(), cfcis)
+	if err != nil {
+		return
+	}
+	cfc.Log.Info().Any("mapping", mapping).Msg("Wrote cloudflared config")
 }
 
 func stackedIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv1.Ingress) {
@@ -26,47 +69,25 @@ func stackedIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv
 		cfc.Log = &log
 	})
 
-	tp := tunnel.UpsertTunnelParams{
-		Namespace: ingress.Namespace,
-	}
 	annotations := ingress.GetAnnotations()
-	var ok bool
-	tp.ExternalName, ok = annotations[config.AnnotationCloudflareTunnelExternalName]
+	externalName, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
 	if !ok {
-		log.Debug().Msgf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
+		err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
+		cfc.Log.Debug().Err(err).Msg("Failed to find external name")
 		return
-
 	}
-	// tp.DefaultSecretName = false
-	// tp.SecretName, ok = annotations[config.AnnotationCloudflareTunnelKeySecret]
-	// if !ok {
-	// 	tp.DefaultSecretName = true
-	// 	tp.SecretName = fmt.Sprintf("cf-tunnel-key.%s",
-	// 		reSanitze.ReplaceAllString(strings.ToLower(*tunnel.GetTunnelNameFromIngress(ingress)), "-"))
-	// }
-	nid, ok := annotations[config.AnnotationCloudflareTunnelName]
-	if ok {
-		my := nid
-		tp.Name = &my
-	}
-	// nid, ok = annotations[config.AnnotationCloudflareTunnelId]
-	// if ok {
-	// 	id, err := uuid.Parse(nid)
-	// 	if err != nil {
-	// 		log.Error().Str("tunnelId", nid).Err(err).Msg("Failed to parse tunnel id")
-	// 	} else {
-	// 		tp.TunnelID = &id
-	// 	}
-	// }
-	tp.Labels = ingress.GetLabels()
-	ts, err := tunnel.UpsertTunnel(cfc, tp)
+	tp, ts, err := tunnel.PrepareTunnel(cfc, ingress.Namespace, annotations, ingress.GetLabels())
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Failed to upsert tunnel")
 		return
 	}
-	cfc.Log.Info().Str("tunnel", ts.TunnelID.String()).Str("externalName", tp.ExternalName).Msg("Upserted tunnel")
+
+	err = tunnel.RegisterCFDnsEndpoint(cfc, *tp.TunnelID, externalName)
+	if err != nil {
+		return
+	}
 
 	cfcis := []config.CFConfigIngress{}
+	mapping := []tunnel.CFEndpointMapping{}
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
 			cfc.Log.Warn().Str("name", *tp.Name).Str("host", rule.Host).Msg("Skipping non-http ingress rule")
@@ -87,10 +108,15 @@ func stackedIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv
 			port = ":" + _port
 		}
 		for _, path := range rule.HTTP.Paths {
+			svcUrl := fmt.Sprintf("%s://%s%s", schema, rule.Host, port)
+			mapping = append(mapping, tunnel.CFEndpointMapping{
+				External: externalName,
+				Internal: svcUrl,
+			})
 			cci := config.CFConfigIngress{
-				Hostname: tp.ExternalName,
+				Hostname: externalName,
 				Path:     path.Path,
-				Service:  fmt.Sprintf("%s://%s%s", schema, rule.Host, port),
+				Service:  svcUrl,
 				OriginRequest: &config.CFConfigOriginRequest{
 					HttpHostHeader: rule.Host,
 				},
@@ -98,8 +124,11 @@ func stackedIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv
 			cfcis = append(cfcis, cci)
 		}
 	}
-
-	tunnel.WriteCloudflaredConfig(cfc, tp, ts, ingress.ObjectMeta.GetUID(), cfcis)
+	err = tunnel.WriteCloudflaredConfig(cfc, tp, ts, ingress.GetUID(), cfcis)
+	if err != nil {
+		return
+	}
+	cfc.Log.Info().Any("mapping", mapping).Msg("Wrote cloudflared config")
 }
 
 func WatchIngress(_cfc *controller.CFController, namespace string) (watch.Interface, error) {
@@ -135,10 +164,24 @@ func WatchIngress(_cfc *controller.CFController, namespace string) (watch.Interf
 					config.AnnotationCloudflareTunnelName)
 				continue
 			}
-			if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
-				directIngress(cfc, ev, ingress)
-			} else {
-				stackedIngress(cfc, ev, ingress)
+			switch ev.Type {
+			case watch.Added:
+				if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
+					classIngress(cfc, ev, ingress)
+				} else {
+					stackedIngress(cfc, ev, ingress)
+				}
+			case watch.Modified:
+				if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
+					classIngress(cfc, ev, ingress)
+				} else {
+					stackedIngress(cfc, ev, ingress)
+				}
+			case watch.Deleted:
+				// o := ev.Object.(*metav1.ObjectMeta)
+				tunnel.RemoveFromCloudflaredConfig(cfc, &ingress.ObjectMeta)
+			default:
+				cfc.Log.Error().Msgf("Unknown event type: %s", ev.Type)
 			}
 
 		}
