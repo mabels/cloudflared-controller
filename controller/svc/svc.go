@@ -41,13 +41,19 @@ func updateConfigMap(_cfc *controller.CFController, svc *corev1.Service) error {
 			cfc.Log.Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
 			continue
 		}
-		urlPort := ""
+		urlPort := fmt.Sprintf(":%d", port.Port)
 		schema := "http"
 		if port.TargetPort.Type == intstr.Int {
-			urlPort = fmt.Sprintf(":%d", port.TargetPort.IntVal)
+			cfc.Log.Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
+			continue
 		}
 		if port.TargetPort.Type == intstr.String {
-			schema = "https"
+			switch port.TargetPort.StrVal {
+			case "http":
+			case "https":
+				schema = "https"
+			default:
+			}
 		}
 		svcUrl := fmt.Sprintf("%s://%s%s", schema, svc.Name, urlPort)
 		mapping = append(mapping, tunnel.CFEndpointMapping{
