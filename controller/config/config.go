@@ -20,12 +20,13 @@ type CFControllerConfig struct {
 	ShowVersion        bool
 	RunningInstanceDir string
 	CloudFlaredFname   string
+	ChannelSize        int
 	RestartDelay       time.Duration
 	CloudFlare         struct {
 		ApiUrl    string
 		ApiToken  string
 		AccountId string
-		ZoneId    string
+		// ZoneId    string
 	}
 	Leader struct {
 		Name          string
@@ -52,7 +53,7 @@ func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error)
 	pflag.StringArrayVarP(&cfg.PresetNamespaces, "namespace", "n", []string{}, "namespaces to watch")
 	pflag.StringVarP(&cfg.CloudFlare.ApiToken, "cloudflare-api-token", "t", os.Getenv("CLOUDFLARE_API_TOKEN"), "Cloudflare API Key/Token")
 	pflag.StringVarP(&cfg.CloudFlare.AccountId, "cloudflare-accountid", "a", os.Getenv("CLOUDFLARE_ACCOUNT_ID"), "Cloudflare Account ID")
-	pflag.StringVarP(&cfg.CloudFlare.ZoneId, "cloudflare-zoneid", "z", os.Getenv("CLOUDFLARE_ZONE_ID"), "Cloudflare Zone ID")
+	// pflag.StringVarP(&cfg.CloudFlare.ZoneId, "cloudflare-zoneid", "z", os.Getenv("CLOUDFLARE_ZONE_ID"), "Cloudflare Zone ID")
 	pflag.StringVarP(&cfg.CloudFlare.ApiUrl, "cloudflare-api-url", "u", cfg.CloudFlare.ApiUrl, "Cloudflare API URL")
 	pflag.StringVarP(&cfg.Identity, "identity", "i", identity, "identity of this running instance")
 	pflag.StringVarP(&cfg.RunningInstanceDir, "running-instance-dir", "R", "./", "running instance directory")
@@ -66,6 +67,7 @@ func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error)
 	pflag.DurationVar(&cfg.RestartDelay, "restart-delay", 30*time.Second, "delay between restarts")
 	pflag.StringVar(&cfg.Leader.Name, "leader-name", "cloudflared-controller", "leader elected name")
 	pflag.StringVar(&cfg.Leader.Namespace, "leader-namespace", "default", "leader election namespace")
+	pflag.IntVar(&cfg.ChannelSize, "channel-size", 10, "channel size")
 	pflag.Parse()
 	if cfg.CloudFlare.ApiToken == "" {
 		return nil, fmt.Errorf("Cloudflare API Key is required")
@@ -73,15 +75,15 @@ func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error)
 	if cfg.CloudFlare.AccountId == "" {
 		return nil, fmt.Errorf("Cloudflare Account ID is required")
 	}
-	if cfg.CloudFlare.ZoneId == "" {
-		return nil, fmt.Errorf("Cloudflare Zone ID is required")
-	}
+	// if cfg.CloudFlare.ZoneId == "" {
+	// 	return nil, fmt.Errorf("Cloudflare Zone ID is required")
+	// }
 	return &cfg, nil
 }
 
 const (
-	AnnotationCloudflareTunnelName = "cloudflare.com/tunnel-name"
-	// AnnotationCloudflareTunnelId           = "cloudflare.com/tunnel-id"
+	AnnotationCloudflareTunnelName         = "cloudflare.com/tunnel-name"
+	AnnotationCloudflareTunnelId           = "cloudflare.com/tunnel-id"
 	AnnotationCloudflareTunnelExternalName = "cloudflare.com/tunnel-external-name"
 	AnnotationCloudflareTunnelPort         = "cloudflare.com/tunnel-port"
 	// CloudflareTunnelAccountId    = "cloudflare.com/tunnel-account-id"
@@ -90,6 +92,6 @@ const (
 )
 
 const (
-	LabelCloudflaredControllerVersion  = "cloudflared-controller/version"
-	LabelCloudflaredControllerTunnelId = "cloudflared-controller/tunnel-id"
+	LabelCloudflaredControllerVersion = "cloudflared-controller/version"
+	// LabelCloudflaredControllerTunnelId = "cloudflared-controller/tunnel-id"
 )

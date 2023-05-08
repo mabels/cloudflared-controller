@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
 
-	"github.com/cloudflare/cloudflared/cfapi"
 	"github.com/mabels/cloudflared-controller/controller"
 	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/mabels/cloudflared-controller/controller/config_maps"
@@ -68,24 +67,9 @@ func main() {
 		cfc.Log.Fatal().Err(err).Msg("Error building kubernetes clientset")
 	}
 
-	cfc.Rest.Cf, err = cfapi.NewRESTClient(cfc.Cfg.CloudFlare.ApiUrl,
-		cfc.Cfg.CloudFlare.AccountId, // accountTag string,
-		cfc.Cfg.CloudFlare.ZoneId,    // zoneTag string,
-		cfc.Cfg.CloudFlare.ApiToken,
-		"cloudflared-controller",
-		cfc.Log)
-	if err != nil {
-		cfc.Log.Fatal().Err(err).Msg("Failed to create cloudflare client")
-	}
-
 	cfc.Log.Info().Str("kubeconfig", cfc.Cfg.KubeConfigFile).Msg("Starting controller")
 
 	if !cfc.Cfg.NoCloudFlared {
-		// 	// start configmap controller for cloudflared
-		// 	// cloudflared-controller  namespace
-		// 	// get my namespace
-		// 	// tunnelid
-		// }
 		out := make(chan config_maps.ConfigMapTunnelEvent)
 		namespaces.Start(cfc, config_maps.WatchTunnelConfigMap(cfc, out))
 		go func() {
@@ -108,7 +92,6 @@ func main() {
 				}
 			}
 			cfc.Log.Info().Msg("Stop Tunnel Event loop")
-
 		}()
 	}
 

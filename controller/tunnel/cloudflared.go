@@ -30,9 +30,9 @@ type runningInstance struct {
 }
 
 func (ri *runningInstance) buildCredentialsFile(cfc *controller.CFController, cm *corev1.ConfigMap) (credfname string, err error) {
-	tunnelId, found := cm.ObjectMeta.GetLabels()[config.LabelCloudflaredControllerTunnelId]
+	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId]
 	if !found {
-		return credfname, fmt.Errorf("missing label %s", config.LabelCloudflaredControllerTunnelId)
+		return credfname, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId)
 	}
 	tunnelName, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelName]
 	if !found {
@@ -56,9 +56,9 @@ func (ri *runningInstance) buildCredentialsFile(cfc *controller.CFController, cm
 }
 
 func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (*config.CFConfigYaml, error) {
-	tunnelId, found := cm.ObjectMeta.GetLabels()[config.LabelCloudflaredControllerTunnelId]
+	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId]
 	if !found {
-		return nil, fmt.Errorf("missing label %s", config.LabelCloudflaredControllerTunnelId)
+		return nil, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId)
 	}
 	cfis := []config.CFConfigIngress{}
 	for _, rules := range cm.Data {

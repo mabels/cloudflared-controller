@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type CFEndpointMapping struct {
@@ -96,7 +95,12 @@ func GetTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*cfapi.Tunn
 	} else if tp.TunnelID != nil {
 		tf.ByTunnelID(*tp.TunnelID)
 	}
-	ts, err := cfc.Rest.Cf.ListTunnels(tf)
+	cfclient, err := cfc.Rest.CFClientWithoutZoneID()
+	if err != nil {
+		cfc.Log.Error().Err(err).Msg("Can't find CF client")
+		return nil, err
+	}
+	ts, err := cfclient.ListTunnels(tf)
 	if err != nil {
 		cfc.Log.Error().Err(err).Msg("Error listing tunnels")
 		return nil, err
@@ -162,6 +166,11 @@ func MatchK8SSecret(cfc *controller.CFController, tunnelId string, tp UpsertTunn
 func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
 	ts, err := GetTunnel(cfc, tp)
 	var cts *CFTunnelSecret
+	cfClient, err := cfc.Rest.CFClientWithoutZoneID()
+	if err != nil {
+		cfc.Log.Error().Err(err).Msg("Can't find CF client")
+		return nil, err
+	}
 	if err != nil && strings.HasPrefix(err.Error(), "No tunnel found for name ") {
 		if tp.Name == nil {
 			err := fmt.Errorf("To create a new tunnel, a name must be provided")
@@ -173,7 +182,7 @@ func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunne
 		rand.Read(byteSecret)
 		secretStr = base64.StdEncoding.EncodeToString(byteSecret)
 		cfc.Log.Debug().Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found, creating new secret")
-		ts, err = cfc.Rest.Cf.CreateTunnel(*tp.Name, byteSecret)
+		ts, err = cfClient.CreateTunnel(*tp.Name, byteSecret)
 		if err != nil {
 			cfc.Log.Error().Str("name", *tp.Name).Err(err).Msg("Error creating tunnel")
 			return nil, err
@@ -197,8 +206,8 @@ func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunne
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        tp.K8SSecretName().Name,
 				Namespace:   tp.K8SConfigMapName().Namespace,
-				Annotations: cfAnnotations(tp.Annotations, *tp.Name),
-				Labels:      cfLabels(tp.Labels, cfc, ts.ID.String()),
+				Annotations: cfAnnotations(tp.Annotations, *tp.Name, ts.ID.String()),
+				Labels:      cfLabels(tp.Labels, cfc),
 			},
 			Data: map[string][]byte{
 				"credentials.json": ctsBytes,
@@ -243,7 +252,7 @@ func GetTunnelNameFromIngress(ingress *netv1.Ingress) *string {
 	return &ingress.Name
 }
 
-func cfAnnotations(annos map[string]string, tunnelName string) map[string]string {
+func cfAnnotations(annos map[string]string, tunnelName string, tunnelId string) map[string]string {
 	ret := make(map[string]string)
 	if annos == nil {
 		for k, v := range annos {
@@ -251,23 +260,36 @@ func cfAnnotations(annos map[string]string, tunnelName string) map[string]string
 		}
 	}
 	ret[config.AnnotationCloudflareTunnelName] = tunnelName
+	ret[config.AnnotationCloudflareTunnelId] = tunnelId
 	return ret
 }
 
-func cfLabels(labels map[string]string, cfc *controller.CFController, tunnelId string) map[string]string {
+// var reLabelValues = regexp.MustCompile("[A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?")
+
+func cfLabels(labels map[string]string, cfc *controller.CFController) map[string]string {
 	ret := make(map[string]string)
 	if labels == nil {
 		for k, v := range labels {
 			ret[k] = v
 		}
 	}
-	ret[config.LabelCloudflaredControllerVersion] = cfc.Cfg.Version
-	ret[config.LabelCloudflaredControllerTunnelId] = tunnelId
+	ret[config.LabelCloudflaredControllerVersion] = fmt.Sprintf("v%s", reSanitze.ReplaceAllString(cfc.Cfg.Version, "-"))
 	return ret
 }
 
 func RegisterCFDnsEndpoint(cfc *controller.CFController, tunnelId uuid.UUID, name string) error {
-	_, err := cfc.Rest.Cf.RouteTunnel(tunnelId, cfapi.NewDNSRoute(name, true))
+	parts := strings.Split(strings.Trim(strings.TrimSpace(name), "."), ".")
+	if len(parts) < 2 {
+		err := fmt.Errorf("Invalid DNS name: %s", name)
+		return err
+	}
+	domain := fmt.Sprintf("%s.%s", parts[len(parts)-2], parts[len(parts)-1])
+	cfClient, err := cfc.Rest.GetCFClientForDomain(domain)
+	if err != nil {
+		cfc.Log.Error().Str("dnsName", name).Err(err).Msg("Error getting CF client")
+		return err
+	}
+	_, err = cfClient.RouteTunnel(tunnelId, cfapi.NewDNSRoute(name, true))
 	if err != nil && !strings.HasPrefix(err.Error(), "Failed to add route: code: 1003") {
 		cfc.Log.Error().Str("dnsName", name).Err(err).Msg("Error routing tunnel")
 		return err
@@ -275,7 +297,7 @@ func RegisterCFDnsEndpoint(cfc *controller.CFController, tunnelId uuid.UUID, nam
 	return nil
 }
 
-func WriteCloudflaredConfig(cfc *controller.CFController, tp *UpsertTunnelParams, cts *CFTunnelSecret, uid types.UID, cfcis []config.CFConfigIngress) error {
+func WriteCloudflaredConfig(cfc *controller.CFController, kind string, tp *UpsertTunnelParams, cts *CFTunnelSecret, cfcis []config.CFConfigIngress) error {
 	yCFConfigIngressByte, err := yaml.Marshal(cfcis)
 	if err != nil {
 		cfc.Log.Error().Err(err).Msg("Error marshaling ingress")
@@ -285,15 +307,16 @@ func WriteCloudflaredConfig(cfc *controller.CFController, tp *UpsertTunnelParams
 		config.AnnotationCloudflareTunnelKeySecret: tp.K8SSecretName().FQDN,
 	}
 
+	key := fmt.Sprintf("%s/%s/%s", kind, tp.Namespace, *tp.Name)
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        tp.K8SConfigMapName().Name,
 			Namespace:   tp.Namespace,
-			Labels:      cfLabels(tp.Labels, cfc, cts.TunnelID.String()),
-			Annotations: cfAnnotations(tp.Annotations, *tp.Name),
+			Labels:      cfLabels(tp.Labels, cfc),
+			Annotations: cfAnnotations(tp.Annotations, *tp.Name, cts.TunnelID.String()),
 		},
 		Data: map[string]string{
-			string(uid): string(yCFConfigIngressByte),
+			key: string(yCFConfigIngressByte),
 		},
 	}
 	client := cfc.Rest.K8s.CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
@@ -310,14 +333,14 @@ func WriteCloudflaredConfig(cfc *controller.CFController, tp *UpsertTunnelParams
 	return err
 }
 
-func RemoveFromCloudflaredConfig(cfc *controller.CFController, meta *metav1.ObjectMeta) {
+func RemoveFromCloudflaredConfig(cfc *controller.CFController, kind string, meta *metav1.ObjectMeta) {
 	annotations := meta.GetAnnotations()
-	_, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
-	if !ok {
-		err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
-		cfc.Log.Debug().Err(err).Msg("Failed to find external name")
-		return
-	}
+	// _, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
+	// if !ok {
+	// 	err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
+	// 	cfc.Log.Debug().Err(err).Msg("Failed to find external name")
+	// 	return
+	// }
 	tp, _, err := PrepareTunnel(cfc, meta.Namespace, annotations, meta.GetLabels())
 	if err != nil {
 		return
@@ -329,13 +352,17 @@ func RemoveFromCloudflaredConfig(cfc *controller.CFController, meta *metav1.Obje
 		cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error getting config")
 		return
 	}
-	delete(toUpdate.Data, string(meta.GetUID()))
-	_, err = client.Update(cfc.Context, toUpdate, metav1.UpdateOptions{})
-	if err != nil {
-		cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
-		return
+	key := fmt.Sprintf("%s/%s/%s", kind, meta.Namespace, meta.Name)
+	needChange := len(toUpdate.Data)
+	delete(toUpdate.Data, key)
+	if needChange != len(toUpdate.Data) {
+		_, err = client.Update(cfc.Context, toUpdate, metav1.UpdateOptions{})
+		if err != nil {
+			cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
+			return
+		}
+		cfc.Log.Debug().Str("uid", string(meta.GetUID())).Msg("Removing from config")
 	}
-	cfc.Log.Debug().Str("uid", string(meta.GetUID())).Msg("Removing from config")
 }
 
 func PrepareTunnel(cfc *controller.CFController, ns string, annotations map[string]string, labels map[string]string) (*UpsertTunnelParams, *CFTunnelSecret, error) {

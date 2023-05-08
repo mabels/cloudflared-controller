@@ -20,6 +20,10 @@ func classIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv1.
 	annotations := ingress.GetAnnotations()
 	tp, ts, err := tunnel.PrepareTunnel(cfc, ingress.Namespace, annotations, ingress.GetLabels())
 	if err != nil {
+		//err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
+		cfc.Log.Debug().Str("kind", ingress.Kind).Str("name", ingress.Name).
+			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
+		tunnel.RemoveFromCloudflaredConfig(cfc, ingress.Kind, &ingress.ObjectMeta)
 		return
 	}
 	cfcis := []config.CFConfigIngress{}
@@ -40,11 +44,7 @@ func classIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv1.
 				External: rule.Host,
 				Internal: srvUrl,
 			})
-			err = tunnel.RegisterCFDnsEndpoint(cfc, *tp.TunnelID, rule.Host)
-			if err != nil {
-				cfc.Log.Error().Err(err).Str("host", rule.Host).Msg("Failed to register CF DNS endpoint")
-				continue
-			}
+
 			cci := config.CFConfigIngress{
 				Hostname: rule.Host,
 				Path:     path.Path,
@@ -56,7 +56,7 @@ func classIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv1.
 			cfcis = append(cfcis, cci)
 		}
 	}
-	err = tunnel.WriteCloudflaredConfig(cfc, tp, ts, ingress.GetUID(), cfcis)
+	err = tunnel.WriteCloudflaredConfig(cfc, ingress.Kind, tp, ts, cfcis)
 	if err != nil {
 		return
 	}
@@ -72,12 +72,19 @@ func stackedIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv
 	annotations := ingress.GetAnnotations()
 	externalName, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
 	if !ok {
-		err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
-		cfc.Log.Debug().Err(err).Msg("Failed to find external name")
+		cfc.Log.Debug().Str("kind", ingress.Kind).Str("name", ingress.Name).
+			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
+		tunnel.RemoveFromCloudflaredConfig(cfc, ingress.Kind, &ingress.ObjectMeta)
+
+		// err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
+		// cfc.Log.Debug().Err(err).Msg("Failed to find external name")
 		return
 	}
 	tp, ts, err := tunnel.PrepareTunnel(cfc, ingress.Namespace, annotations, ingress.GetLabels())
 	if err != nil {
+		cfc.Log.Debug().Str("kind", ingress.Kind).Str("name", ingress.Name).
+			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
+		tunnel.RemoveFromCloudflaredConfig(cfc, ingress.Kind, &ingress.ObjectMeta)
 		return
 	}
 
@@ -124,11 +131,27 @@ func stackedIngress(_cfc *controller.CFController, ev watch.Event, ingress *netv
 			cfcis = append(cfcis, cci)
 		}
 	}
-	err = tunnel.WriteCloudflaredConfig(cfc, tp, ts, ingress.GetUID(), cfcis)
+	err = tunnel.WriteCloudflaredConfig(cfc, ingress.Kind, tp, ts, cfcis)
 	if err != nil {
 		return
 	}
 	cfc.Log.Info().Any("mapping", mapping).Msg("Wrote cloudflared config")
+}
+
+func getAllIngresses(cfc *controller.CFController, namespace string) ([]watch.Event, error) {
+	log := cfc.Log.With().Str("component", "getAllIngress").Str("namespace", namespace).Logger()
+	ingresses, err := cfc.Rest.K8s.NetworkingV1().Ingresses(namespace).List(cfc.Context, metav1.ListOptions{})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to list Services")
+	}
+	out := make([]watch.Event, 0, len(ingresses.Items))
+	for _, ingress := range ingresses.Items {
+		out = append(out, watch.Event{
+			Type:   watch.Added,
+			Object: &ingress,
+		})
+	}
+	return out, nil
 }
 
 func WatchIngress(_cfc *controller.CFController, namespace string) (watch.Interface, error) {
@@ -140,6 +163,15 @@ func WatchIngress(_cfc *controller.CFController, namespace string) (watch.Interf
 	if err != nil {
 		cfc.Log.Error().Err(err).Msg("Error watching ingress")
 	}
+	events := make(chan []watch.Event, cfc.Cfg.ChannelSize)
+
+	evs, err := getAllIngresses(cfc, namespace)
+	if err != nil {
+		cfc.Log.Error().Err(err).Msg("Failed to get all Services")
+		return nil, err
+	}
+	events <- evs
+
 	go func() {
 		cfc.Log.Info().Msg("Start watching ingress")
 		for {
@@ -156,34 +188,52 @@ func WatchIngress(_cfc *controller.CFController, namespace string) (watch.Interf
 				cfc.Log.Error().Msg("Ingress not in watched namespace")
 				continue
 			}
-			annotations := ingress.GetAnnotations()
-			_, foundCTN := annotations[config.AnnotationCloudflareTunnelName]
-			// _, foundCID := annotations[config.AnnotationCloudflareTunnelId]
-			if !foundCTN {
-				cfc.Log.Debug().Str("name", ingress.Name).Msgf("skipping not cloudflared annotated(%s)",
-					config.AnnotationCloudflareTunnelName)
-				continue
-			}
-			switch ev.Type {
-			case watch.Added:
-				if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
-					classIngress(cfc, ev, ingress)
-				} else {
-					stackedIngress(cfc, ev, ingress)
-				}
-			case watch.Modified:
-				if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
-					classIngress(cfc, ev, ingress)
-				} else {
-					stackedIngress(cfc, ev, ingress)
-				}
-			case watch.Deleted:
-				// o := ev.Object.(*metav1.ObjectMeta)
-				tunnel.RemoveFromCloudflaredConfig(cfc, &ingress.ObjectMeta)
-			default:
-				cfc.Log.Error().Msgf("Unknown event type: %s", ev.Type)
-			}
+			events <- []watch.Event{ev}
+		}
+	}()
 
+	go func() {
+		for {
+			evs, more := <-events
+			if !more {
+				break
+			}
+			for _, ev := range evs {
+				ingress, ok := ev.Object.(*netv1.Ingress)
+				if !ok {
+					cfc.Log.Error().Msg("Failed to cast to Ingress")
+					continue
+				}
+				annotations := ingress.GetAnnotations()
+				_, foundCTN := annotations[config.AnnotationCloudflareTunnelName]
+				// _, foundCID := annotations[config.AnnotationCloudflareTunnelId]
+				if !foundCTN {
+					cfc.Log.Debug().Str("uid", string(ingress.GetUID())).Str("name", ingress.Name).
+						Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
+					tunnel.RemoveFromCloudflaredConfig(cfc, ingress.Kind, &ingress.ObjectMeta)
+					continue
+				}
+				switch ev.Type {
+				case watch.Added:
+					if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
+						classIngress(cfc, ev, ingress)
+					} else {
+						stackedIngress(cfc, ev, ingress)
+					}
+				case watch.Modified:
+					if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudfared" {
+						classIngress(cfc, ev, ingress)
+					} else {
+						stackedIngress(cfc, ev, ingress)
+					}
+				case watch.Deleted:
+					// o := ev.Object.(*metav1.ObjectMeta)
+					tunnel.RemoveFromCloudflaredConfig(cfc, ingress.Kind, &ingress.ObjectMeta)
+				default:
+					cfc.Log.Error().Msgf("Unknown event type: %s", ev.Type)
+				}
+
+			}
 		}
 	}()
 	return wif, nil
