@@ -102,7 +102,10 @@ func NewCFController(log *zerolog.Logger) *CFController {
 		CancelFunc:  cancelFn,
 		shutdownFns: make(map[string]func()),
 	}
-	cfc.Rest = &RestClients{cfc: &cfc}
+	cfc.Rest = &RestClients{
+		cfc: &cfc,
+		cfs: make(map[string]*cfapi.RESTClient),
+	}
 	return &cfc
 }
 
