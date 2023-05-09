@@ -93,5 +93,6 @@ const (
 
 const (
 	LabelCloudflaredControllerVersion = "cloudflared-controller/version"
+	// LabelCloudflaredControllerManaged = "cloudflared-controller/managed"
 	// LabelCloudflaredControllerTunnelId = "cloudflared-controller/tunnel-id"
 )

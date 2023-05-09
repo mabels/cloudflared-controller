@@ -9,10 +9,13 @@ import (
 	"github.com/cloudflare/cloudflared/cfapi"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/mabels/cloudflared-controller/controller/config"
 )
+
+type WatchFunc func(*CFController, string) (watch.Interface, error)
 
 type RestClients struct {
 	cfc *CFController
@@ -89,6 +92,7 @@ type CFController struct {
 	Log         *zerolog.Logger
 	Cfg         *config.CFControllerConfig
 	Rest        *RestClients
+	ConfigMaps  *TunnelConfigMaps
 	Context     context.Context
 	CancelFunc  context.CancelFunc
 	shutdownFns map[string]func()

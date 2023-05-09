@@ -9,8 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type WatchFunc func(*controller.CFController, string) (watch.Interface, error)
-
 func namespaceObserver(_cfc *controller.CFController, nsHandler *Namespaces) (watch.Interface, error) {
 	cfc := _cfc.WithComponent("namespaceObserver")
 	nIf, err := cfc.Rest.K8s.CoreV1().Namespaces().Watch(cfc.Context, metav1.ListOptions{})
@@ -57,7 +55,7 @@ func namespaceObserver(_cfc *controller.CFController, nsHandler *Namespaces) (wa
 	return nIf, nil
 }
 
-func perNamespaceObserver(_cfc *controller.CFController, nsHandler *Namespaces, fns ...WatchFunc) (chan watch.Event, error) {
+func perNamespaceObserver(_cfc *controller.CFController, nsHandler *Namespaces, fns ...controller.WatchFunc) (chan watch.Event, error) {
 	cfc := _cfc.WithComponent("perNamespaceObserver", func(c *controller.CFController) {
 		log := c.Log.With().Str("uuid", uuid.NewString()).Logger()
 		c.Log = &log
@@ -107,7 +105,7 @@ func perNamespaceObserver(_cfc *controller.CFController, nsHandler *Namespaces, 
 	return wes, nil
 }
 
-func Start(cfc *controller.CFController, fns ...WatchFunc) (func(), error) {
+func Start(cfc *controller.CFController, fns ...controller.WatchFunc) (func(), error) {
 	ns := New()
 	wif, err := namespaceObserver(cfc, ns)
 	if err != nil {

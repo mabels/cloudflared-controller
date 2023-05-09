@@ -274,6 +274,7 @@ func cfLabels(labels map[string]string, cfc *controller.CFController) map[string
 		}
 	}
 	ret[config.LabelCloudflaredControllerVersion] = fmt.Sprintf("v%s", reSanitze.ReplaceAllString(cfc.Cfg.Version, "-"))
+	ret["app"] = "cloudflared-controller"
 	return ret
 }
 
@@ -334,34 +335,25 @@ func WriteCloudflaredConfig(cfc *controller.CFController, kind string, tp *Upser
 }
 
 func RemoveFromCloudflaredConfig(cfc *controller.CFController, kind string, meta *metav1.ObjectMeta) {
-	annotations := meta.GetAnnotations()
-	// _, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
-	// if !ok {
-	// 	err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
-	// 	cfc.Log.Debug().Err(err).Msg("Failed to find external name")
-	// 	return
-	// }
-	tp, _, err := PrepareTunnel(cfc, meta.Namespace, annotations, meta.GetLabels())
-	if err != nil {
-		return
+	name := meta.GetName()
+	tp := &UpsertTunnelParams{
+		Name:      &name,
+		Namespace: meta.GetNamespace(),
 	}
+	for _, toUpdate := range cfc.ConfigMaps.ConfigMaps() {
 
-	client := cfc.Rest.K8s.CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
-	toUpdate, err := client.Get(cfc.Context, tp.K8SConfigMapName().Name, metav1.GetOptions{})
-	if err != nil {
-		cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error getting config")
-		return
-	}
-	key := fmt.Sprintf("%s/%s/%s", kind, meta.Namespace, meta.Name)
-	needChange := len(toUpdate.Data)
-	delete(toUpdate.Data, key)
-	if needChange != len(toUpdate.Data) {
-		_, err = client.Update(cfc.Context, toUpdate, metav1.UpdateOptions{})
-		if err != nil {
-			cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
-			return
+		key := fmt.Sprintf("%s/%s/%s", kind, meta.Namespace, meta.Name)
+		needChange := len(toUpdate.Cm.Data)
+		delete(toUpdate.Cm.Data, key)
+		if needChange != len(toUpdate.Cm.Data) {
+			client := cfc.Rest.K8s.CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
+			_, err := client.Update(cfc.Context, &toUpdate.Cm, metav1.UpdateOptions{})
+			if err != nil {
+				cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
+				continue
+			}
+			cfc.Log.Debug().Str("key", key).Msg("Removing from config")
 		}
-		cfc.Log.Debug().Str("uid", string(meta.GetUID())).Msg("Removing from config")
 	}
 }
 

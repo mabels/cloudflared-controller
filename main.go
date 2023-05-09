@@ -67,6 +67,8 @@ func main() {
 		cfc.Log.Fatal().Err(err).Msg("Error building kubernetes clientset")
 	}
 
+	cfc.ConfigMaps = controller.NewTunnelConfigMaps()
+
 	cfc.Log.Info().Str("kubeconfig", cfc.Cfg.KubeConfigFile).Msg("Starting controller")
 
 	if !cfc.Cfg.NoCloudFlared {
@@ -102,7 +104,7 @@ func main() {
 				cfc.Log.Fatal().Msg("Already running leader")
 			}
 			cfc.Log.Info().Str("id", cfc.Cfg.Identity).Msg("became leader, starting work.")
-			runningLeader, err = namespaces.Start(cfc, ingress.WatchIngress, svc.WatchSvc)
+			runningLeader, err = namespaces.Start(cfc, cfc.ConfigMaps.WatchConfigMaps(), ingress.WatchIngress, svc.WatchSvc)
 			if err != nil {
 				cfc.Log.Fatal().Err(err).Msg("Failed to start leader")
 			}
