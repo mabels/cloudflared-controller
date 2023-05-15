@@ -1,4 +1,4 @@
-package tunnel
+package cloudflared
 
 import (
 	"bufio"
@@ -12,11 +12,12 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/mabels/cloudflared-controller/controller"
 	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 type runningInstance struct {
@@ -29,7 +30,7 @@ type runningInstance struct {
 	unregisterShutdown func()
 }
 
-func (ri *runningInstance) buildCredentialsFile(cfc *controller.CFController, cm *corev1.ConfigMap) (credfname string, err error) {
+func (ri *runningInstance) buildCredentialsFile(cfc types.CFController, cm *corev1.ConfigMap) (credfname string, err error) {
 	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId]
 	if !found {
 		return credfname, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId)
@@ -84,7 +85,7 @@ func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (
 	return &igss, os.WriteFile(ri.configfname, yConfigYamlByte, 0600)
 }
 
-func (ri *runningInstance) Stop(cfc *controller.CFController) {
+func (ri *runningInstance) Stop(cfc types.CFController) {
 	if ri.unregisterShutdown != nil {
 		ri.unregisterShutdown()
 		ri.unregisterShutdown = nil
@@ -94,7 +95,7 @@ func (ri *runningInstance) Stop(cfc *controller.CFController) {
 		if err != nil {
 			ri.log.Error().Err(err).Msg("error killing process")
 		}
-		if !cfc.Cfg.Debug {
+		if !cfc.Cfg().Debug {
 			err := os.RemoveAll(ri.currentDir)
 			if err != nil {
 				ri.log.Error().Err(err).Str("dir", ri.currentDir).Msg("removing runtime dir")
@@ -104,9 +105,9 @@ func (ri *runningInstance) Stop(cfc *controller.CFController) {
 	}
 }
 
-func (ri *runningInstance) Start(cfc *controller.CFController) error {
-	log := cfc.Log.With().Str("component", "cloudflared").Str("id", ri.id.String()).Logger()
-	cfdFname, err := exec.LookPath(cfc.Cfg.CloudFlaredFname)
+func (ri *runningInstance) Start(cfc types.CFController) error {
+	log := cfc.Log().With().Str("component", "cloudflared").Str("id", ri.id.String()).Logger()
+	cfdFname, err := exec.LookPath(cfc.Cfg().CloudFlaredFname)
 	if err != nil {
 		return err
 	}
@@ -153,13 +154,13 @@ type Tunnel struct {
 	ri           *runningInstance
 }
 
-func (t *Tunnel) newRunningInstance(cfc *controller.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
+func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
 	id := uuid.New()
-	log := cfc.Log.With().Str("id", id.String()).Str("component", "cloudflared").Logger()
+	log := cfc.Log().With().Str("id", id.String()).Str("component", "cloudflared").Logger()
 	ri := &runningInstance{
 		tunnel:     t,
 		id:         id,
-		currentDir: path.Join(cfc.Cfg.RunningInstanceDir, id.String()),
+		currentDir: path.Join(cfc.Cfg().RunningInstanceDir, id.String()),
 		log:        &log,
 	}
 	ri.unregisterShutdown = cfc.RegisterShutdown(func() {
@@ -206,7 +207,7 @@ func (t *Tunnel) newRunningInstance(cfc *controller.CFController, cm *corev1.Con
 		if err != nil && strings.Contains(err.Error(), "signal: killed") {
 			ri.Stop(cfc)
 			ri.cmd = nil // just in case
-			// time.Sleep(cfc.Cfg.RestartDelay)
+			// time.Sleep(cfc.Cfg().RestartDelay)
 			// err = ri.Start(cfc)
 			// if err != nil {
 			// 	log.Error().Err(err).Msg("error starting cloudflared")
@@ -226,13 +227,13 @@ func (t *Tunnel) newRunningInstance(cfc *controller.CFController, cm *corev1.Con
 	return ri, nil
 }
 
-func (t *Tunnel) Start(cfc *controller.CFController, cm *corev1.ConfigMap) {
+func (t *Tunnel) Start(cfc types.CFController, cm *corev1.ConfigMap) {
 	t.processing.Lock()
 	defer t.processing.Unlock()
 	instanceToStop := t.ri
 	newri, err := t.newRunningInstance(cfc, cm)
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("error starting cloudflared")
+		cfc.Log().Error().Err(err).Msg("error starting cloudflared")
 		return
 	}
 	t.ri = newri
@@ -242,7 +243,7 @@ func (t *Tunnel) Start(cfc *controller.CFController, cm *corev1.ConfigMap) {
 
 }
 
-func (t *Tunnel) Stop(cfc *controller.CFController) {
+func (t *Tunnel) Stop(cfc types.CFController) {
 	t.processing.Lock()
 	defer t.processing.Unlock()
 	if t.ri != nil {
@@ -274,10 +275,32 @@ func (tr *TunnelRunner) getTunnel(name string) *Tunnel {
 	return tunnel
 }
 
-func (tr *TunnelRunner) Start(cfc *controller.CFController, cm *corev1.ConfigMap) {
+func (tr *TunnelRunner) Start(cfc types.CFController, cm *corev1.ConfigMap) {
 	tr.getTunnel(cm.Name).Start(cfc, cm)
 }
 
-func (tr *TunnelRunner) Stop(cfc *controller.CFController, cm *corev1.ConfigMap) {
+func (tr *TunnelRunner) Stop(cfc types.CFController, cm *corev1.ConfigMap) {
 	tr.getTunnel(cm.Name).Stop(cfc)
+}
+
+func ConfigMapHandler(_cfc types.CFController) func(cms []*corev1.ConfigMap, ev watch.Event) {
+	cfc := _cfc.WithComponent("cloudflared")
+	tr := NewTunnelRunner()
+	return func(cms []*corev1.ConfigMap, ev watch.Event) {
+		cm, found := ev.Object.(*corev1.ConfigMap)
+		if !found {
+			cfc.Log().Error().Msg("error casting object")
+			return
+		}
+		switch ev.Type {
+		case watch.Added:
+			tr.Start(cfc, cm)
+		case watch.Modified:
+			tr.Start(cfc, cm)
+		case watch.Deleted:
+			tr.Stop(cfc, cm)
+		default:
+			cfc.Log().Error().Str("event", string(ev.Type)).Msg("unknown event type")
+		}
+	}
 }

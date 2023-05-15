@@ -2,52 +2,54 @@ package svc
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/mabels/cloudflared-controller/controller"
+	"github.com/mabels/cloudflared-controller/controller/cloudflared"
 	"github.com/mabels/cloudflared-controller/controller/config"
-	"github.com/mabels/cloudflared-controller/controller/tunnel"
+	"github.com/mabels/cloudflared-controller/controller/namespaces"
+	"github.com/mabels/cloudflared-controller/controller/types"
+	"github.com/mabels/cloudflared-controller/controller/watcher"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func updateConfigMap(_cfc *controller.CFController, svc *corev1.Service) error {
-	cfc := _cfc.WithComponent("watchSvc", func(cfc *controller.CFController) {
-		log := cfc.Log.With().Str("svc", svc.Name).Logger()
-		cfc.Log = &log
+func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
+	cfc := _cfc.WithComponent("watchSvc", func(cfc types.CFController) {
+		log := cfc.Log().With().Str("svc", svc.Name).Logger()
+		cfc.SetLog(&log)
 	})
 
 	annotations := svc.GetAnnotations()
 	externalName, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
 	if !ok {
 		//err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
-		cfc.Log.Debug().Str("kind", svc.Kind).Str("name", svc.Name).
+		cfc.Log().Debug().Str("kind", svc.Kind).Str("name", svc.Name).
 			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
-		tunnel.RemoveFromCloudflaredConfig(cfc, svc.Kind, &svc.ObjectMeta)
+		cloudflared.RemoveFromCloudflaredConfig(cfc, "service", &svc.ObjectMeta)
 		return nil
 	}
-	tp, ts, err := tunnel.PrepareTunnel(cfc, svc.Namespace, annotations, svc.GetLabels())
+	tp, ts, err := cloudflared.PrepareTunnel(cfc, svc.Namespace, annotations, svc.GetLabels())
 	if err != nil {
 		return err
 	}
 
-	err = tunnel.RegisterCFDnsEndpoint(cfc, *tp.TunnelID, externalName)
+	err = cloudflared.RegisterCFDnsEndpoint(cfc, *tp.TunnelID, externalName)
 	if err != nil {
 		return err
 	}
 	cfcis := []config.CFConfigIngress{}
-	mapping := []tunnel.CFEndpointMapping{}
+	mapping := []cloudflared.CFEndpointMapping{}
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != corev1.ProtocolTCP {
-			cfc.Log.Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
+			cfc.Log().Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
 			continue
 		}
 		urlPort := fmt.Sprintf(":%d", port.Port)
 		schema := "http"
 		if port.TargetPort.Type == intstr.Int {
-			cfc.Log.Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
+			cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
 			continue
 		}
 		if port.TargetPort.Type == intstr.String {
@@ -59,7 +61,7 @@ func updateConfigMap(_cfc *controller.CFController, svc *corev1.Service) error {
 			}
 		}
 		svcUrl := fmt.Sprintf("%s://%s%s", schema, svc.Name, urlPort)
-		mapping = append(mapping, tunnel.CFEndpointMapping{
+		mapping = append(mapping, cloudflared.CFEndpointMapping{
 			External: externalName,
 			Internal: svcUrl,
 		})
@@ -73,102 +75,160 @@ func updateConfigMap(_cfc *controller.CFController, svc *corev1.Service) error {
 		}
 		cfcis = append(cfcis, cci)
 	}
-	err = tunnel.WriteCloudflaredConfig(cfc, svc.Kind, tp, ts, cfcis)
+	err = cloudflared.WriteCloudflaredConfig(cfc, "service", svc.Name, tp, ts, cfcis)
 	if err != nil {
 		return err
 	}
-	cfc.Log.Info().Any("mapping", mapping).Msg("Wrote cloudflared config")
+	cfc.Log().Info().Any("mapping", mapping).Msg("Wrote cloudflared config")
 	return nil
 }
 
-func getAllServices(cfc *controller.CFController, namespace string) ([]watch.Event, error) {
-	log := cfc.Log.With().Str("component", "getAllServices").Str("namespace", namespace).Logger()
-	svcs, err := cfc.Rest.K8s.CoreV1().Services(namespace).List(cfc.Context, metav1.ListOptions{})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to list Services")
-	}
-	out := make([]watch.Event, 0, len(svcs.Items))
-	for _, svc := range svcs.Items {
-		out = append(out, watch.Event{
-			Type:   watch.Added,
-			Object: &svc,
+// func getAllServices(cfc types.CFController, namespace string) ([]watch.Event, error) {
+// 	log := cfc.Log().With().Str("component", "getAllServices").Str("namespace", namespace).Logger()
+// 	svcs, err := cfc.Rest.K8s.CoreV1().Services(namespace).List(cfc.Context, metav1.ListOptions{})
+// 	if err != nil {
+// 		log.Error().Err(err).Msg("Failed to list Services")
+// 	}
+// 	out := make([]watch.Event, 0, len(svcs.Items))
+// 	for _, svc := range svcs.Items {
+// 		out = append(out, watch.Event{
+// 			Type:   watch.Added,
+// 			Object: &svc,
+// 		})
+// 	}
+// 	return out, nil
+// }
+
+type watcherBindingServices struct {
+	watcher         types.Watcher[*corev1.Service]
+	unregisterEvent func()
+	namespace       string
+}
+
+type services struct {
+	lock  sync.Mutex
+	items map[string]watcherBindingServices
+}
+
+func startServiceWatcher(cfc types.CFController, ns string) (watcherBindingServices, error) {
+	log := cfc.Log().With().Str("watcher", "service").Str("namespace", ns).Logger()
+	wt := watcher.NewWatcher(
+		types.WatcherConfig[corev1.Service, *corev1.Service, types.WatcherBindingService, types.WatcherBindingServiceClient]{
+			Log:     &log,
+			Context: cfc.Context(),
+			K8sClient: types.WatcherBindingServiceClient{
+				Sif: cfc.Rest().K8s().CoreV1().Services(ns),
+			},
 		})
-	}
-	return out, nil
+	unreg := wt.RegisterEvent(func(_ []*corev1.Service, ev watch.Event) {
+		log.Debug().Str("event", string(ev.Type)).Msg("Received event")
+		svc, ok := ev.Object.(*corev1.Service)
+		if !ok {
+			cfc.Log().Error().Msg("Failed to cast to Service")
+			return
+		}
+		annotations := svc.GetAnnotations()
+		_, foundCTN := annotations[config.AnnotationCloudflareTunnelName]
+		// _, foundCID := annotations[config.AnnotationCloudflareTunnelId]
+		if !foundCTN {
+			log.Debug().Str("uid", string(svc.GetUID())).Str("name", svc.Name).
+				Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
+			cloudflared.RemoveFromCloudflaredConfig(cfc, "service", &svc.ObjectMeta)
+			return
+		}
+		var err error
+		switch ev.Type {
+		case watch.Added:
+			err = updateConfigMap(cfc, svc)
+		case watch.Modified:
+			err = updateConfigMap(cfc, svc)
+		case watch.Deleted:
+			cloudflared.RemoveFromCloudflaredConfig(cfc, "service", &svc.ObjectMeta)
+		default:
+			log.Error().Msgf("Unknown event type: %s", ev.Type)
+		}
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to update config")
+		}
+	})
+	err := wt.Start()
+	log.Debug().Msg("Started watcher")
+	return watcherBindingServices{
+		watcher:         wt,
+		unregisterEvent: unreg,
+		namespace:       ns,
+	}, err
 }
 
-func WatchSvc(cfc *controller.CFController, namespace string) (watch.Interface, error) {
-	log := cfc.Log.With().Str("component", "watchSvc").Str("namespace", namespace).Logger()
-	wif, err := cfc.Rest.K8s.CoreV1().Services(namespace).Watch(cfc.Context, metav1.ListOptions{})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to watch Services")
-		return nil, err
+func Start(cfc types.CFController) func() {
+	svcs := &services{
+		items: make(map[string]watcherBindingServices),
 	}
-	events := make(chan []watch.Event, cfc.Cfg.ChannelSize)
-
-	evs, err := getAllServices(cfc, namespace)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get all Services")
-		return nil, err
-	}
-	events <- evs
-	go func() {
-		log.Info().Msg("Start watching svc")
-		for {
-			ev, more := <-wif.ResultChan()
-			if !more {
-				break
-			}
-			svc, ok := ev.Object.(*corev1.Service)
-			if !ok {
-				cfc.Log.Error().Msg("Failed to cast to Ingress")
-				continue
-			}
-			if svc.Namespace != namespace {
-				cfc.Log.Error().Msg("Ingress not in watched namespace")
-				continue
-			}
-			events <- []watch.Event{ev}
-
+	unreg := cfc.K8sData().Namespaces.RegisterEvent(func(_ []*corev1.Namespace, ev watch.Event) {
+		ns, ok := ev.Object.(*corev1.Namespace)
+		if !ok {
+			cfc.Log().Error().Msg("Failed to cast to Namespace")
+			return
 		}
-		log.Info().Msg("Stop watching svc")
-	}()
-	go func() {
-		for {
-			evs, more := <-events
-			if !more {
-				break
-			}
-			for _, ev := range evs {
-				svc, ok := ev.Object.(*corev1.Service)
-				if !ok {
-					cfc.Log.Error().Msg("Failed to cast to Ingress")
-					continue
-				}
-				annotations := svc.GetAnnotations()
-				_, foundCTN := annotations[config.AnnotationCloudflareTunnelName]
-				// _, foundCID := annotations[config.AnnotationCloudflareTunnelId]
-				if !foundCTN {
-					cfc.Log.Debug().Str("name", svc.Name).Msgf("skipping not cloudflared annotated(%s)",
-						config.AnnotationCloudflareTunnelName)
-					continue
-				}
-				var err error
-				switch ev.Type {
-				case watch.Added:
-					err = updateConfigMap(cfc, svc)
-				case watch.Modified:
-					err = updateConfigMap(cfc, svc)
-				case watch.Deleted:
-					tunnel.RemoveFromCloudflaredConfig(cfc, svc.Kind, &svc.ObjectMeta)
-				default:
-					cfc.Log.Error().Msgf("Unknown event type: %s", ev.Type)
-				}
+		if namespaces.SkipNamespace(cfc, ns.Name) {
+			return
+		}
+		svcs.lock.Lock()
+		defer svcs.lock.Unlock()
+		switch ev.Type {
+		case watch.Added:
+			if _, ok := svcs.items[ns.Name]; !ok {
+				wif, err := startServiceWatcher(cfc, ns.Name)
 				if err != nil {
-					cfc.Log.Error().Err(err).Msg("Failed to update config")
+					cfc.Log().Error().Err(err).Msg("Failed to start ingress watcher")
+					return
 				}
+				svcs.items[ns.Name] = wif
 			}
+		case watch.Modified:
+		case watch.Deleted:
+			my, ok := svcs.items[ns.Name]
+			if !ok {
+				delete(svcs.items, ns.Name)
+				my.unregisterEvent()
+				my.watcher.Stop()
+			}
+		default:
+			cfc.Log().Error().Msgf("Unknown event type: %s", ev.Type)
 		}
-	}()
-	return wif, nil
+	})
+	cfc.Log().Debug().Str("component", "svc").Msg("Started watcher")
+	return func() {
+		svcs.lock.Lock()
+		defer svcs.lock.Unlock()
+		for _, v := range svcs.items {
+			v.unregisterEvent()
+			v.watcher.Stop()
+		}
+		unreg()
+	}
+
 }
+
+// func Start(cfc types.CFController) func() {
+// 	unreg := cfc.K8sData.Namespaces.RegisterEvent(func(_ []*corev1.Namespace, ev watch.Event) {
+// 		ns, ok := ev.Object.(*corev1.Namespace)
+// 		if !ok {
+// 			cfc.Log().Error().Msg("Failed to cast to Namespace")
+// 			return
+// 		}
+// 		if namespaces.SkipNamespace(cfc, ns.Name) {
+// 			return
+// 		}
+// 		switch ev.Type {
+// 		case watch.Added:
+// 		case watch.Modified:
+// 		case watch.Deleted:
+// 		default:
+// 			cfc.Log().Error().Msgf("Unknown event type: %s", ev.Type)
+// 		}
+// 	})
+// 	return func() {
+// 		unreg()
+// 	}
+// }

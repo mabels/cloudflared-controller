@@ -1,4 +1,4 @@
-package tunnel
+package cloudflared
 
 import (
 	"crypto/rand"
@@ -10,8 +10,8 @@ import (
 
 	"github.com/cloudflare/cloudflared/cfapi"
 
-	"github.com/mabels/cloudflared-controller/controller"
 	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/types"
 
 	// "github.com/mabels/cloudflared-controller/controller/config_maps"
 	"github.com/rs/zerolog"
@@ -43,7 +43,8 @@ type UpsertTunnelParams struct {
 	// rs                cfapi.ResourceContainer
 }
 
-var reSanitze = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+var reSanitzeAlpha = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+var reSanitzeNice = regexp.MustCompile(`[^_\\-\\.a-zA-Z0-9]+`)
 
 type K8SResourceName struct {
 	Namespace string
@@ -66,7 +67,7 @@ func FromFQDN(fqdn string, ns string) K8SResourceName {
 }
 
 func (tp UpsertTunnelParams) buildK8SResourceName(prefix string) K8SResourceName {
-	name := fmt.Sprintf("%s.%s", prefix, reSanitze.ReplaceAllString(*tp.Name, "-"))
+	name := fmt.Sprintf("%s.%s", prefix, reSanitzeAlpha.ReplaceAllString(*tp.Name, "-"))
 	return K8SResourceName{
 		Namespace: tp.Namespace,
 		Name:      name,
@@ -88,21 +89,21 @@ type CFTunnelSecret struct {
 	TunnelID     uuid.UUID `json:"TunnelID"`
 }
 
-func GetTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*cfapi.TunnelWithToken, error) {
+func GetTunnel(cfc types.CFController, tp UpsertTunnelParams) (*cfapi.TunnelWithToken, error) {
 	tf := cfapi.NewTunnelFilter()
 	if tp.Name != nil {
 		tf.ByName(*tp.Name)
 	} else if tp.TunnelID != nil {
 		tf.ByTunnelID(*tp.TunnelID)
 	}
-	cfclient, err := cfc.Rest.CFClientWithoutZoneID()
+	cfclient, err := cfc.Rest().CFClientWithoutZoneID()
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Can't find CF client")
+		cfc.Log().Error().Err(err).Msg("Can't find CF client")
 		return nil, err
 	}
 	ts, err := cfclient.ListTunnels(tf)
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Error listing tunnels")
+		cfc.Log().Error().Err(err).Msg("Error listing tunnels")
 		return nil, err
 	}
 	var foundTs *cfapi.Tunnel
@@ -114,10 +115,10 @@ func GetTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*cfapi.Tunn
 	}
 	if foundTs == nil {
 		err := fmt.Errorf("No tunnel found for name %v", *tp.Name)
-		// cfc.Log.Error().Err(err).Any("ts", ts).Msg("No tunnels found")
+		// cfc.Log().Error().Err(err).Any("ts", ts).Msg("No tunnels found")
 		return nil, err
 	}
-	cfc.Log.Debug().Msgf("Found tunnel: %s/%s", foundTs.ID, foundTs.Name)
+	cfc.Log().Debug().Msgf("Found tunnel: %s/%s", foundTs.ID, foundTs.Name)
 	twt := cfapi.TunnelWithToken{
 		Tunnel: *foundTs,
 	}
@@ -145,63 +146,63 @@ func GetTunnelSecret(log *zerolog.Logger, tp UpsertTunnelParams, secret *corev1.
 	return cts, nil
 }
 
-func MatchK8SSecret(cfc *controller.CFController, tunnelId string, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
-	secret, err := cfc.Rest.K8s.CoreV1().Secrets(tp.K8SSecretName().Namespace).Get(cfc.Context, tp.K8SSecretName().Name, metav1.GetOptions{})
+func MatchK8SSecret(cfc types.CFController, tunnelId string, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
+	secret, err := cfc.Rest().K8s().CoreV1().Secrets(tp.K8SSecretName().Namespace).Get(cfc.Context(), tp.K8SSecretName().Name, metav1.GetOptions{})
 	if err != nil {
-		cfc.Log.Error().Err(err).Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found")
+		cfc.Log().Error().Err(err).Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found")
 		return nil, err
 	}
 
-	cts, err := GetTunnelSecret(cfc.Log, tp, secret)
+	cts, err := GetTunnelSecret(cfc.Log(), tp, secret)
 	if err != nil {
 		return nil, err
 	}
-	if cts.TunnelID.String() != tunnelId || cts.AccountTag != cfc.Cfg.CloudFlare.AccountId {
-		cfc.Log.Error().Msgf("Secret does not match tunnelId or accountTag")
+	if cts.TunnelID.String() != tunnelId || cts.AccountTag != cfc.Cfg().CloudFlare.AccountId {
+		cfc.Log().Error().Msgf("Secret does not match tunnelId or accountTag")
 		return nil, fmt.Errorf("Secret does not match tunnelId or accountTag")
 	}
 	return &cts, nil
 }
 
-func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
-	ts, err := GetTunnel(cfc, tp)
-	var cts *CFTunnelSecret
-	cfClient, err := cfc.Rest.CFClientWithoutZoneID()
+func UpsertTunnel(cfc types.CFController, tp UpsertTunnelParams) (*CFTunnelSecret, error) {
+	cfClient, err := cfc.Rest().CFClientWithoutZoneID()
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Can't find CF client")
+		cfc.Log().Error().Err(err).Msg("Can't find CF client")
 		return nil, err
 	}
+	var cts *CFTunnelSecret
+	ts, err := GetTunnel(cfc, tp)
 	if err != nil && strings.HasPrefix(err.Error(), "No tunnel found for name ") {
 		if tp.Name == nil {
 			err := fmt.Errorf("To create a new tunnel, a name must be provided")
-			cfc.Log.Error().Err(err).Msg("Error creating tunnel")
+			cfc.Log().Error().Err(err).Msg("Error creating tunnel")
 			return nil, err
 		}
 		var secretStr string
 		byteSecret := make([]byte, 32)
 		rand.Read(byteSecret)
 		secretStr = base64.StdEncoding.EncodeToString(byteSecret)
-		cfc.Log.Debug().Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found, creating new secret")
+		cfc.Log().Debug().Str("secretName", tp.K8SSecretName().FQDN).Msg("Secret not found, creating new secret")
 		ts, err = cfClient.CreateTunnel(*tp.Name, byteSecret)
 		if err != nil {
-			cfc.Log.Error().Str("name", *tp.Name).Err(err).Msg("Error creating tunnel")
+			cfc.Log().Error().Str("name", *tp.Name).Err(err).Msg("Error creating tunnel")
 			return nil, err
 		}
-		cfc.Log.Debug().Str("name", *tp.Name).Str("id", ts.ID.String()).Err(err).Msg("created tunnel")
+		cfc.Log().Debug().Str("name", *tp.Name).Str("id", ts.ID.String()).Err(err).Msg("created tunnel")
 		cts = &CFTunnelSecret{
-			AccountTag:   cfc.Cfg.CloudFlare.AccountId,
+			AccountTag:   cfc.Cfg().CloudFlare.AccountId,
 			TunnelSecret: secretStr,
 			TunnelID:     ts.ID,
 		}
 		tp.TunnelID = &ts.ID
 		ctsBytes, err := json.Marshal(cts)
 		if err != nil {
-			cfc.Log.Error().Err(err).Str("name", *tp.Name).Msg("Error marshalling credentials")
+			cfc.Log().Error().Err(err).Str("name", *tp.Name).Msg("Error marshalling credentials")
 			return nil, err
 		}
 
-		secretClient := cfc.Rest.K8s.CoreV1().Secrets(tp.K8SSecretName().Namespace)
-		_, err = secretClient.Get(cfc.Context, tp.K8SConfigMapName().Name, metav1.GetOptions{})
+		secretClient := cfc.Rest().K8s().CoreV1().Secrets(tp.K8SSecretName().Namespace)
+		_, err = secretClient.Get(cfc.Context(), tp.K8SConfigMapName().Name, metav1.GetOptions{})
 		k8sSecret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        tp.K8SSecretName().Name,
@@ -215,30 +216,30 @@ func UpsertTunnel(cfc *controller.CFController, tp UpsertTunnelParams) (*CFTunne
 		}
 
 		if err != nil {
-			secret, err := secretClient.Create(cfc.Context, &k8sSecret, metav1.CreateOptions{})
+			secret, err := secretClient.Create(cfc.Context(), &k8sSecret, metav1.CreateOptions{})
 			if err != nil {
-				cfc.Log.Error().Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Err(err).Msg("Error creating secret")
+				cfc.Log().Error().Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Err(err).Msg("Error creating secret")
 				return nil, err
 			}
 		} else {
-			secret, err := secretClient.Update(cfc.Context, &k8sSecret, metav1.UpdateOptions{})
+			secret, err := secretClient.Update(cfc.Context(), &k8sSecret, metav1.UpdateOptions{})
 			if err != nil {
-				cfc.Log.Error().Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Err(err).Msg("Error update secret")
+				cfc.Log().Error().Str("name", secret.GetObjectMeta().GetNamespace()+"/"+secret.GetObjectMeta().GetName()).Err(err).Msg("Error update secret")
 				return nil, err
 			}
 		}
 	} else if err != nil {
-		cfc.Log.Error().Str("name", *tp.Name).Err(err).Msg("Error getting tunnel")
+		cfc.Log().Error().Str("name", *tp.Name).Err(err).Msg("Error getting tunnel")
 		return nil, err
 	} else {
 		tp.Name = &ts.Name
 		tp.TunnelID = &ts.ID
 		cts, err = MatchK8SSecret(cfc, ts.ID.String(), tp)
 		if err != nil {
-			cfc.Log.Error().Str("tunnelId", ts.ID.String()).Str("secretName", tp.K8SConfigMapName().FQDN).Err(err).Msg("Error matching secret")
+			cfc.Log().Error().Str("tunnelId", ts.ID.String()).Str("secretName", tp.K8SConfigMapName().FQDN).Err(err).Msg("Error matching secret")
 			return nil, err
 		}
-		cfc.Log.Debug().Str("name", *tp.Name).Str("id", ts.ID.String()).Err(err).Msg("found tunnel")
+		cfc.Log().Debug().Str("name", *tp.Name).Str("id", ts.ID.String()).Err(err).Msg("found tunnel")
 	}
 
 	return cts, nil
@@ -266,49 +267,63 @@ func cfAnnotations(annos map[string]string, tunnelName string, tunnelId string) 
 
 // var reLabelValues = regexp.MustCompile("[A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?")
 
-func cfLabels(labels map[string]string, cfc *controller.CFController) map[string]string {
+func cfLabels(labels map[string]string, cfc types.CFController) map[string]string {
 	ret := make(map[string]string)
 	if labels == nil {
 		for k, v := range labels {
 			ret[k] = v
 		}
 	}
-	ret[config.LabelCloudflaredControllerVersion] = fmt.Sprintf("v%s", reSanitze.ReplaceAllString(cfc.Cfg.Version, "-"))
-	ret["app"] = "cloudflared-controller"
+	v := reSanitzeNice.ReplaceAllString(cfc.Cfg().Version, "-")
+	ret[config.LabelCloudflaredControllerVersion] = fmt.Sprintf("%s", v)
+	tokens := strings.Split(strings.TrimSpace(cfc.Cfg().ConfigMapLabelSelector), "=")
+	if len(tokens) < 2 {
+		ret["app"] = "cloudflared-controller"
+		cfc.Log().Warn().Str("labelSelector", cfc.Cfg().ConfigMapLabelSelector).Msg("Invalid label selector, using default")
+	} else {
+		ret[tokens[0]] = tokens[1]
+	}
 	return ret
 }
 
-func RegisterCFDnsEndpoint(cfc *controller.CFController, tunnelId uuid.UUID, name string) error {
+func RegisterCFDnsEndpoint(cfc types.CFController, tunnelId uuid.UUID, name string) error {
 	parts := strings.Split(strings.Trim(strings.TrimSpace(name), "."), ".")
 	if len(parts) < 2 {
 		err := fmt.Errorf("Invalid DNS name: %s", name)
 		return err
 	}
 	domain := fmt.Sprintf("%s.%s", parts[len(parts)-2], parts[len(parts)-1])
-	cfClient, err := cfc.Rest.GetCFClientForDomain(domain)
+	cfClient, err := cfc.Rest().GetCFClientForDomain(domain)
 	if err != nil {
-		cfc.Log.Error().Str("dnsName", name).Err(err).Msg("Error getting CF client")
+		cfc.Log().Error().Str("dnsName", name).Err(err).Msg("Error getting CF client")
 		return err
 	}
 	_, err = cfClient.RouteTunnel(tunnelId, cfapi.NewDNSRoute(name, true))
 	if err != nil && !strings.HasPrefix(err.Error(), "Failed to add route: code: 1003") {
-		cfc.Log.Error().Str("dnsName", name).Err(err).Msg("Error routing tunnel")
+		cfc.Log().Error().Str("dnsName", name).Err(err).Msg("Error routing tunnel")
 		return err
 	}
 	return nil
 }
 
-func WriteCloudflaredConfig(cfc *controller.CFController, kind string, tp *UpsertTunnelParams, cts *CFTunnelSecret, cfcis []config.CFConfigIngress) error {
+func cmKey(kind, ns, name string) string {
+	if kind == "" {
+		panic("kind cannot be empty")
+	}
+	return reSanitzeNice.ReplaceAllString(fmt.Sprintf("%s-%s-%s", kind, ns, name), "_")
+}
+
+func WriteCloudflaredConfig(cfc types.CFController, kind string, resName string, tp *UpsertTunnelParams, cts *CFTunnelSecret, cfcis []config.CFConfigIngress) error {
 	yCFConfigIngressByte, err := yaml.Marshal(cfcis)
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Error marshaling ingress")
+		cfc.Log().Error().Err(err).Msg("Error marshaling ingress")
 		return err
 	}
 	tp.Annotations = map[string]string{
 		config.AnnotationCloudflareTunnelKeySecret: tp.K8SSecretName().FQDN,
 	}
 
-	key := fmt.Sprintf("%s/%s/%s", kind, tp.Namespace, *tp.Name)
+	key := cmKey(kind, tp.Namespace, resName)
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        tp.K8SConfigMapName().Name,
@@ -320,44 +335,44 @@ func WriteCloudflaredConfig(cfc *controller.CFController, kind string, tp *Upser
 			key: string(yCFConfigIngressByte),
 		},
 	}
-	client := cfc.Rest.K8s.CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
-	toUpdate, err := client.Get(cfc.Context, tp.K8SConfigMapName().Name, metav1.GetOptions{})
+	client := cfc.Rest().K8s().CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
+	toUpdate, err := client.Get(cfc.Context(), tp.K8SConfigMapName().Name, metav1.GetOptions{})
 	if err != nil {
-		_, err = client.Create(cfc.Context, &cm, metav1.CreateOptions{})
+		_, err = client.Create(cfc.Context(), &cm, metav1.CreateOptions{})
 	} else {
 		for k, v := range cm.Data {
 			toUpdate.Data[k] = v
 		}
-		_, err = client.Update(cfc.Context, toUpdate, metav1.UpdateOptions{})
+		_, err = client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
 	}
 
 	return err
 }
 
-func RemoveFromCloudflaredConfig(cfc *controller.CFController, kind string, meta *metav1.ObjectMeta) {
+func RemoveFromCloudflaredConfig(cfc types.CFController, kind string, meta *metav1.ObjectMeta) {
+	// panic("Not implemented")
 	name := meta.GetName()
 	tp := &UpsertTunnelParams{
 		Name:      &name,
 		Namespace: meta.GetNamespace(),
 	}
-	for _, toUpdate := range cfc.ConfigMaps.ConfigMaps() {
-
-		key := fmt.Sprintf("%s/%s/%s", kind, meta.Namespace, meta.Name)
-		needChange := len(toUpdate.Cm.Data)
-		delete(toUpdate.Cm.Data, key)
-		if needChange != len(toUpdate.Cm.Data) {
-			client := cfc.Rest.K8s.CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
-			_, err := client.Update(cfc.Context, &toUpdate.Cm, metav1.UpdateOptions{})
+	for _, toUpdate := range cfc.K8sData().TunnelConfigMaps.Get() {
+		key := cmKey(kind, meta.Namespace, meta.Name)
+		needChange := len(toUpdate.Data)
+		delete(toUpdate.Data, key)
+		if needChange != len(toUpdate.Data) {
+			client := cfc.Rest().K8s().CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
+			_, err := client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
 			if err != nil {
-				cfc.Log.Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
+				cfc.Log().Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
 				continue
 			}
-			cfc.Log.Debug().Str("key", key).Msg("Removing from config")
+			cfc.Log().Debug().Str("key", key).Msg("Removing from config")
 		}
 	}
 }
 
-func PrepareTunnel(cfc *controller.CFController, ns string, annotations map[string]string, labels map[string]string) (*UpsertTunnelParams, *CFTunnelSecret, error) {
+func PrepareTunnel(cfc types.CFController, ns string, annotations map[string]string, labels map[string]string) (*UpsertTunnelParams, *CFTunnelSecret, error) {
 	tp := UpsertTunnelParams{
 		Namespace: ns,
 	}
@@ -369,10 +384,10 @@ func PrepareTunnel(cfc *controller.CFController, ns string, annotations map[stri
 	tp.Labels = labels
 	ts, err := UpsertTunnel(cfc, tp)
 	if err != nil {
-		cfc.Log.Error().Err(err).Msg("Failed to upsert tunnel")
+		cfc.Log().Error().Err(err).Msg("Failed to upsert tunnel")
 		return nil, nil, err
 	}
 	tp.TunnelID = &ts.TunnelID
-	cfc.Log.Debug().Str("tunnel", *tp.Name).Str("tunnelId", ts.TunnelID.String()).Msg("Upserted tunnel")
+	cfc.Log().Debug().Str("tunnel", *tp.Name).Str("tunnelId", ts.TunnelID.String()).Msg("Upserted tunnel")
 	return &tp, ts, nil
 }

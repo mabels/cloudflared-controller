@@ -11,18 +11,19 @@ import (
 )
 
 type CFControllerConfig struct {
-	KubeConfigFile     string
-	PresetNamespaces   []string
-	Identity           string
-	NoCloudFlared      bool
-	Version            string
-	Debug              bool
-	ShowVersion        bool
-	RunningInstanceDir string
-	CloudFlaredFname   string
-	ChannelSize        int
-	RestartDelay       time.Duration
-	CloudFlare         struct {
+	KubeConfigFile         string
+	PresetNamespaces       []string
+	Identity               string
+	NoCloudFlared          bool
+	Version                string
+	Debug                  bool
+	ShowVersion            bool
+	RunningInstanceDir     string
+	CloudFlaredFname       string
+	ChannelSize            int
+	RestartDelay           time.Duration
+	ConfigMapLabelSelector string
+	CloudFlare             struct {
 		ApiUrl    string
 		ApiToken  string
 		AccountId string
@@ -57,6 +58,7 @@ func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error)
 	pflag.StringVarP(&cfg.CloudFlare.ApiUrl, "cloudflare-api-url", "u", cfg.CloudFlare.ApiUrl, "Cloudflare API URL")
 	pflag.StringVarP(&cfg.Identity, "identity", "i", identity, "identity of this running instance")
 	pflag.StringVarP(&cfg.RunningInstanceDir, "running-instance-dir", "R", "./", "running instance directory")
+	pflag.StringVarP(&cfg.ConfigMapLabelSelector, "config-map-label", "C", "app=cloudflared-controller", "labelselector for our configmap")
 	pflag.StringVar(&cfg.CloudFlaredFname, "cloudflared-fname", "cloudflared", "cloudflared binary filename")
 	pflag.DurationVarP(&cfg.Leader.LeaseDuration, "leader-lease-duration", "l", 15*time.Second, "leader lease duration")
 	pflag.DurationVarP(&cfg.Leader.RenewDeadline, "leader-renew-deadline", "r", 10*time.Second, "leader renew deadline")

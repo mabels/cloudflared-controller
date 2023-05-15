@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -14,33 +13,52 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 
 	"github.com/mabels/cloudflared-controller/controller"
+	"github.com/mabels/cloudflared-controller/controller/cloudflared"
 	"github.com/mabels/cloudflared-controller/controller/config"
-	"github.com/mabels/cloudflared-controller/controller/config_maps"
 	"github.com/mabels/cloudflared-controller/controller/ingress"
+	"github.com/mabels/cloudflared-controller/controller/k8s_data"
 	"github.com/mabels/cloudflared-controller/controller/leader"
-	"github.com/mabels/cloudflared-controller/controller/namespaces"
 	"github.com/mabels/cloudflared-controller/controller/svc"
-	"github.com/mabels/cloudflared-controller/controller/tunnel"
+	"github.com/mabels/cloudflared-controller/controller/types"
+	"github.com/mabels/cloudflared-controller/controller/watcher"
 
 	"github.com/rs/zerolog"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 var Version = "dev"
+
+// type namespacesWatcher = types.Watcher[corev1.Namespace, *corev1.Namespace, types.WatcherBindingNamespace, types.WatcherBindingNamespaceClient]
+
+func watchedNamespaces(cfc types.CFController) (types.Watcher[*corev1.Namespace], error) {
+	log := cfc.Log().With().Str("watcher", "namespaces").Logger()
+	wt := watcher.NewWatcher(
+		types.WatcherConfig[corev1.Namespace, *corev1.Namespace, types.WatcherBindingNamespace, types.WatcherBindingNamespaceClient]{
+			Log:     &log,
+			Context: cfc.Context(),
+			K8sClient: types.WatcherBindingNamespaceClient{
+				Nif: cfc.Rest().K8s().CoreV1().Namespaces(),
+			},
+		})
+	err := wt.Start()
+	return wt, err
+}
 
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	cfc := controller.NewCFController(&_log)
-	var err error
-	cfc.Cfg, err = config.GetConfig(cfc.Log, Version)
+	cfg, err := config.GetConfig(cfc.Log(), Version)
 	if err != nil {
-		cfc.Log.Fatal().Err(err).Msg("Failed to get config")
+		cfc.Log().Fatal().Err(err).Msg("Failed to get config")
 	}
-	if cfc.Cfg.ShowVersion {
+	cfc.SetCfg(cfg)
+	if cfc.Cfg().ShowVersion {
 		fmt.Printf("Version:%s\n", Version)
 		os.Exit(0)
 	}
-	if cfc.Cfg.Debug {
+	if cfc.Cfg().Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
@@ -49,80 +67,72 @@ func main() {
 	// signal.Notify(c, os.Kill)
 	go func() {
 		<-c
-		cfc.Log.Info().Msg("Received SIGINT, shutting down")
+		cfc.Log().Info().Msg("Received SIGINT, shutting down")
 		cfc.Shutdown()
 		os.Exit(130)
 	}()
 
-	config, err := clientcmd.BuildConfigFromFlags("", cfc.Cfg.KubeConfigFile)
+	config, err := clientcmd.BuildConfigFromFlags("", cfc.Cfg().KubeConfigFile)
 	if err != nil {
-		cfc.Log.Info().Str("kubeconfig", cfc.Cfg.KubeConfigFile).Err(err).Msg("kubeconfig no good, trying in-cluster")
+		cfc.Log().Info().Str("kubeconfig", cfc.Cfg().KubeConfigFile).Err(err).Msg("kubeconfig no good, trying in-cluster")
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			cfc.Log.Fatal().Err(err).Msg("Failed to get kubeconfig")
+			cfc.Log().Fatal().Err(err).Msg("Failed to get kubeconfig")
 		}
 	}
-	cfc.Rest.K8s, err = kubernetes.NewForConfig(config)
+	k8s, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		cfc.Log.Fatal().Err(err).Msg("Error building kubernetes clientset")
+		cfc.Log().Fatal().Err(err).Msg("Error building kubernetes clientset")
+	}
+	cfc.Rest().SetK8s(k8s)
+
+	cfc.Rest().K8s().CoreV1().Namespaces()
+
+	cfc.K8sData().Namespaces, err = watchedNamespaces(cfc)
+	if err != nil {
+		cfc.Log().Fatal().Err(err).Msg("Failed to start namespace watcher")
+	}
+	// err = cfc.K8sData.Namespaces.Start()
+	// if err != nil {
+	// 	cfc.Log().Fatal().Err(err).Msg("Failed to start namespace watcher")
+	// }
+	// cfc.K8sData.TunnelConfigMaps = k8s_data.NewTunnelConfigMaps()
+
+	cfc.Log().Info().Str("serverName", config.ServerName).Msg("Starting controller")
+
+	if !cfc.Cfg().NoCloudFlared {
+		cfc.K8sData().TunnelConfigMaps = k8s_data.StartWaitForTunnelConfigMaps(cfc)
+		cfc.K8sData().TunnelConfigMaps.Register(cloudflared.ConfigMapHandler(cfc))
 	}
 
-	cfc.ConfigMaps = controller.NewTunnelConfigMaps()
-
-	cfc.Log.Info().Str("kubeconfig", cfc.Cfg.KubeConfigFile).Msg("Starting controller")
-
-	if !cfc.Cfg.NoCloudFlared {
-		out := make(chan config_maps.ConfigMapTunnelEvent)
-		namespaces.Start(cfc, config_maps.WatchTunnelConfigMap(cfc, out))
-		go func() {
-			cfc.Log.Info().Msg("Start Tunnel Event loop")
-			tr := tunnel.NewTunnelRunner()
-			for {
-				event, more := <-out
-				if !more {
-					break
-				}
-				switch event.Ev.Type {
-				case watch.Added:
-					tr.Start(cfc, &event.Cm)
-				case watch.Modified:
-					tr.Start(cfc, &event.Cm)
-				case watch.Deleted:
-					tr.Stop(cfc, &event.Cm)
-				default:
-					cfc.Log.Err(err).Str("namespace", event.Cm.Namespace).Str("name", event.Cm.Name).Str("type", string(event.Ev.Type)).Msg("Got unknown event")
-				}
-			}
-			cfc.Log.Info().Msg("Stop Tunnel Event loop")
-		}()
-	}
-
-	var runningLeader func() = nil
+	runningLeaders := []func(){}
 	leader.LeaderSelection(cfc, leaderelection.LeaderCallbacks{
 		OnStartedLeading: func(c context.Context) {
-			if runningLeader != nil {
-				cfc.Log.Fatal().Msg("Already running leader")
+			if len(runningLeaders) > 0 {
+				cfc.Log().Fatal().Msg("Already running leader")
 			}
-			cfc.Log.Info().Str("id", cfc.Cfg.Identity).Msg("became leader, starting work.")
-			runningLeader, err = namespaces.Start(cfc, cfc.ConfigMaps.WatchConfigMaps(), ingress.WatchIngress, svc.WatchSvc)
-			if err != nil {
-				cfc.Log.Fatal().Err(err).Msg("Failed to start leader")
-			}
+			cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("became leader, starting work.")
+			go func() {
+				// this might been take to long for the election selection
+				runningLeaders = append(runningLeaders, ingress.Start(cfc), svc.Start(cfc))
+			}()
 		},
 		OnStoppedLeading: func() {
-			cfc.Log.Info().Str("id", cfc.Cfg.Identity).Msg("no longer the leader, staying inactive.")
-			if runningLeader != nil {
-				cfc.Log.Fatal().Msg("Try to stop leader, but not running")
+			cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("no longer the leader, staying inactive.")
+			if len(runningLeaders) == 0 {
+				cfc.Log().Fatal().Msg("Try to stop leader, but not running")
 			}
-			my := runningLeader
-			runningLeader = nil
-			my()
+			my := runningLeaders
+			runningLeaders = []func(){}
+			for _, f := range my {
+				f()
+			}
 		},
 		OnNewLeader: func(current_id string) {
-			if current_id == cfc.Cfg.Identity {
+			if current_id == cfc.Cfg().Identity {
 				return
 			}
-			cfc.Log.Info().Str("id", cfc.Cfg.Identity).Msgf("new leader is %s", current_id)
+			cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msgf("new leader is %s", current_id)
 		},
 	})
 

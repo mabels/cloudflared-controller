@@ -1,0 +1,5 @@
+package types
+
+import "k8s.io/apimachinery/pkg/watch"
+
+type WatchFunc func(*CFController, string) (watch.Interface, error)

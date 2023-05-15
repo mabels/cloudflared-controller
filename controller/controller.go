@@ -2,128 +2,98 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"sync"
 
 	"github.com/cloudflare/cloudflare-go"
-	"github.com/cloudflare/cloudflared/cfapi"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/types"
+	"github.com/rs/zerolog"
 )
 
-type WatchFunc func(*CFController, string) (watch.Interface, error)
-
-type RestClients struct {
-	cfc *CFController
-	// Cf  *cfapi.RESTClient
-	cfsLock sync.Mutex
-	cfs     map[string]*cfapi.RESTClient
-
-	K8s *kubernetes.Clientset
+type localController struct {
+	// types.CFController
+	shutdownFns map[string]func()
+	rest        *RestClients
+	log         *zerolog.Logger
+	cfg         *config.CFControllerConfig
+	context     context.Context
+	cancelFunc  context.CancelFunc
+	k8sData     *types.K8sData
 }
 
-func getZones(cfc *CFController) ([]cloudflare.Zone, error) {
+func getZones(cfc types.CFController) ([]cloudflare.Zone, error) {
 	client, err := cloudflare.NewExperimental(&cloudflare.ClientParams{
-		Token: cfc.Cfg.CloudFlare.ApiToken,
+		Token: cfc.Cfg().CloudFlare.ApiToken,
 		// Logger: cfc.Log,
 	})
 	if err != nil {
 		return nil, err
 	}
-	zones, _, err := client.Zones.List(cfc.Context, &cloudflare.ZoneListParams{})
+	zones, _, err := client.Zones.List(cfc.Context(), &cloudflare.ZoneListParams{})
 	if err != nil {
 		return nil, err
 	}
 	return zones, nil
 }
 
-func (rc *RestClients) CFClientWithoutZoneID() (*cfapi.RESTClient, error) {
-	rc.cfsLock.Lock()
-	defer rc.cfsLock.Unlock()
-	_, found := rc.cfs[""]
-	var err error
-	if !found {
-		rc.cfs[""], err = cfapi.NewRESTClient(
-			rc.cfc.Cfg.CloudFlare.ApiUrl,
-			rc.cfc.Cfg.CloudFlare.AccountId, // accountTag string,
-			"",                              // zoneTag string,
-			rc.cfc.Cfg.CloudFlare.ApiToken,
-			"cloudflared-controller",
-			rc.cfc.Log)
-	}
-	return rc.cfs[""], err
-}
-
-func (rc *RestClients) GetCFClientForDomain(domain string) (*cfapi.RESTClient, error) {
-	rc.cfsLock.Lock()
-	defer rc.cfsLock.Unlock()
-	rcl, found := rc.cfs[domain]
-	if !found {
-		zones, err := getZones(rc.cfc)
-		if err != nil {
-			rc.cfc.Log.Error().Err(err).Msg("Failed to get zones")
-			return nil, err
-		}
-		for _, zone := range zones {
-			rc.cfs[zone.Name], err = cfapi.NewRESTClient(
-				rc.cfc.Cfg.CloudFlare.ApiUrl,
-				rc.cfc.Cfg.CloudFlare.AccountId, // accountTag string,
-				zone.ID,                         // zoneTag string,
-				rc.cfc.Cfg.CloudFlare.ApiToken,
-				fmt.Sprintf("cloudflared-controller(%s)", zone.Name),
-				rc.cfc.Log)
-			if err != nil {
-				rc.cfc.Log.Fatal().Err(err).Msg("Failed to create cloudflare client")
-			}
-		}
-		rcl, found = rc.cfs[domain]
-		if !found {
-			return nil, fmt.Errorf("domain %s not found", domain)
-		}
-	}
-	return rcl, nil
-}
-
-type CFController struct {
-	Log         *zerolog.Logger
-	Cfg         *config.CFControllerConfig
-	Rest        *RestClients
-	ConfigMaps  *TunnelConfigMaps
-	Context     context.Context
-	CancelFunc  context.CancelFunc
-	shutdownFns map[string]func()
-}
-
-func NewCFController(log *zerolog.Logger) *CFController {
+func NewCFController(log *zerolog.Logger) types.CFController {
 	ctx, cancelFn := context.WithCancel(context.Background())
-	cfc := CFController{
-		Log:         log,
-		Context:     ctx,
-		CancelFunc:  cancelFn,
+	cfc := localController{
+		// CFController: types.CFController{
+		log:        log,
+		context:    ctx,
+		cancelFunc: cancelFn,
+		k8sData:    &types.K8sData{},
+		// },
 		shutdownFns: make(map[string]func()),
 	}
-	cfc.Rest = &RestClients{
-		cfc: &cfc,
-		cfs: make(map[string]*cfapi.RESTClient),
-	}
+	cfc.rest = NewRestClients(&cfc)
 	return &cfc
 }
 
-func (cfc *CFController) WithComponent(component string, fns ...func(*CFController)) *CFController {
+func (cfc *localController) Cfg() *config.CFControllerConfig {
+	return cfc.cfg
+}
+
+func (cfc *localController) SetCfg(cfg *config.CFControllerConfig) {
+	cfc.cfg = cfg
+}
+
+func (cfc *localController) K8sData() *types.K8sData {
+	return cfc.k8sData
+}
+
+func (cfc *localController) Rest() types.RestClients {
+	return cfc.rest
+}
+
+func (cfc *localController) Log() *zerolog.Logger {
+	return cfc.log
+}
+
+func (cfc *localController) SetLog(log *zerolog.Logger) {
+	cfc.log = log
+}
+
+func (cfc *localController) Context() context.Context {
+	return cfc.context
+}
+
+func (cfc *localController) CancelFunc() context.CancelFunc {
+	return cfc.cancelFunc
+}
+
+func (cfc *localController) WithComponent(component string, fns ...func(types.CFController)) types.CFController {
 	cf := *cfc
-	log := cf.Log.With().Str("component", component).Logger()
-	cf.Log = &log
+	log := cf.Log().With().Str("component", component).Logger()
+	cf.SetLog(&log)
 	if len(fns) > 0 && fns[0] != nil {
 		fns[0](&cf)
 	}
 	return &cf
 }
 
-func (cfc *CFController) RegisterShutdown(sfn func()) func() {
+func (cfc *localController) RegisterShutdown(sfn func()) func() {
 	id := uuid.New().String()
 	cfc.shutdownFns[id] = sfn
 	return func() {
@@ -131,8 +101,9 @@ func (cfc *CFController) RegisterShutdown(sfn func()) func() {
 	}
 }
 
-func (cfc *CFController) Shutdown() {
+func (cfc *localController) Shutdown() error {
 	for _, sfn := range cfc.shutdownFns {
 		sfn()
 	}
+	return nil
 }

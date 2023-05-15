@@ -4,31 +4,35 @@ An Kubernets Ingress/Service Controller for cloudflared
 this is very much a work in progress
 
 ## TODO
-- implemented in production to see if it is stable
+- implemented in production to see if it is stable (On going)
 - helm chart (inkl rbac to control that configmap und secrets are writeable/readable)
-- add ingressClass support
-- add service support
-- improve the documentation
-- add "more" tests
+- add ingressClass support (untested)
+- add service support (done)
+- improve the documentation (on going)
+- add "more" tests (on going)
+- queue updates for configMap
+- restart logic for the cloudflared
 
 ## How to use
 Set the following environment variables
 ```
-CLOUDFLARE_ZONE_ID=<from your CF website>
 CLOUDFLARE_API_TOKEN=<from your CF Console>
 CLOUDFLARE_ACCOUNT_ID=<from your CF website>
 ```
+The CLOUDFLARE_API_TOKEN needs the following permissions
+- All accounts - Cloudflare Tunnel:Edit
+- All zones - DNS:Read
+
 
 ## Docker
 ```sh
 docker run -v $HOME/.kube/config:/home/nonroot/.kube/config \
    -e CLOUDFLARE_ACCOUNT_ID=<from your CF website> \
    -e CLOUDFLARE_API_TOKEN=<from your CF Console> \
-   -e CLOUDFLARE_ZONE_ID=<from your CF website> \
    -ti ghcr.io/mabels/cloudflared-controller
 ```
 
-## Sample ingress to make it work we need these both annotations
+## Sample basic configuration
 ```
 metadata:
   annotations:
@@ -36,6 +40,37 @@ metadata:
     cloudflare.com/tunnel-name: cloudflare-website.domain
 ```
 
+### Sample service
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    meta.helm.sh/release-name: syncthing
+    meta.helm.sh/release-namespace: default
+    cloudflare.com/tunnel-external-name: stg.cloudflare-website.domain
+    cloudflare.com/tunnel-name: cloudflare-website.domain
+  labels:
+    app.kubernetes.io/instance: syncthing
+  name: syncthing
+  namespace: default
+spec:
+  clusterIP: 10.43.94.217
+  clusterIPs:
+  - 10.43.94.217
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8384
+    protocol: TCP
+    targetPort: http
+  type: ClusterIP
+```
+
+### Sample ingress
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -75,3 +110,5 @@ spec:
 status:
   loadBalancer: {}
 ```
+
+Missing Sample for IngressClass "cloudfared"

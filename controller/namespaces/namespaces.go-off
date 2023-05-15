@@ -36,7 +36,7 @@ func (c *Namespaces) AddWatch(wch chan watch.Event) {
 	}
 }
 
-func (c *Namespaces) AddNamespace(we watch.Event) {
+func (c *Namespaces) AddNamespace(we watch.Event, oWes ...[]chan watch.Event) {
 	c.namespacesMutex.Lock()
 	defer c.namespacesMutex.Unlock()
 	n := we.Object.(*corev1.Namespace).Name
@@ -44,7 +44,11 @@ func (c *Namespaces) AddNamespace(we watch.Event) {
 	if !found {
 		c._namespaces[n] = n
 	}
-	for _, ch := range c._watchEvents {
+	wes := c._watchEvents
+	if len(oWes) > 0 {
+		wes = oWes[0]
+	}
+	for _, ch := range wes {
 		ch <- we
 	}
 }
