@@ -48,10 +48,10 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		}
 		urlPort := fmt.Sprintf(":%d", port.Port)
 		schema := "http"
-		if port.TargetPort.Type == intstr.Int {
-			cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
-			continue
-		}
+		// if port.TargetPort.Type == intstr.Int {
+		// 	cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
+		// 	continue
+		// }
 		if port.TargetPort.Type == intstr.String {
 			switch port.TargetPort.StrVal {
 			case "http":

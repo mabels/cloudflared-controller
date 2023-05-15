@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -19,8 +20,20 @@ import (
 
 // cfc.Rest.K8s.NetworkingV1().Ingresses(namespace)i
 
+type watchState string
+
+const (
+	watchStateStopped  watchState = "stopped"
+	watchStateStarted  watchState = "started"
+	watchStateStopping watchState = "stopping"
+)
+
 type Watcher[R any, RO runtime.Object, I types.K8SItem[RO], C types.K8SClient[RO, I]] struct {
 	types.WatcherConfig[R, RO, I, C]
+
+	watchState   watchState
+	restartCount int
+	restartFunc  func()
 
 	wif       watch.Interface
 	stateSync sync.Mutex
@@ -34,8 +47,9 @@ type Watcher[R any, RO runtime.Object, I types.K8SItem[RO], C types.K8SClient[RO
 
 func NewWatcher[R any, RO runtime.Object, I types.K8SItem[RO], C types.K8SClient[RO, I]](in types.WatcherConfig[R, RO, I, C]) types.Watcher[RO] {
 	my := Watcher[R, RO, I, C]{
-		state:    make(map[string]RO),
-		bindings: make(map[string]types.WatchFunc[RO]),
+		watchState: watchStateStopped,
+		state:      make(map[string]RO),
+		bindings:   make(map[string]types.WatchFunc[RO]),
 	}
 	my.WatcherConfig = in
 	if my.Context == nil {
@@ -45,7 +59,6 @@ func NewWatcher[R any, RO runtime.Object, I types.K8SItem[RO], C types.K8SClient
 		log := zerolog.New(os.Stderr).With().Logger()
 		my.Log = &log
 	}
-	// pmy := &my
 	return &my
 }
 
@@ -101,17 +114,25 @@ func (w *Watcher[R, RO, C, L]) GetState() []RO {
 	return out
 }
 
-func (w *Watcher[R, RO, C, L]) Start() error {
-	if w.wif != nil {
-		err := fmt.Errorf("Already started")
-		w.Log.Err(err).Msg(err.Error())
-		return err
-	}
-	// setup watch
+func (w *Watcher[R, RO, C, L]) getResultChan() (<-chan watch.Event, error) {
 	var err error
 	w.wif, err = w.K8sClient.Watch(w.Context, w.ListOptions)
 	if err != nil {
 		w.Log.Error().Err(err).Msg("Error watching")
+		return nil, err
+	}
+	return w.wif.ResultChan(), nil
+}
+
+func (w *Watcher[R, RO, C, L]) Start() error {
+	if w.watchState != watchStateStopped {
+		err := fmt.Errorf("Already started")
+		w.Log.Err(err).Msg(err.Error())
+		return err
+	}
+	// setup watch to queue the events during startup
+	wifChan, err := w.getResultChan()
+	if err != nil {
 		return err
 	}
 	// read initial state
@@ -121,13 +142,32 @@ func (w *Watcher[R, RO, C, L]) Start() error {
 	}
 	w.watcher.Add(1)
 	// async watch loop
+	w.watchState = watchStateStarted
 	go func() {
 		w.Log.Info().Msg("Start watching")
 		for {
-			ev, more := <-w.wif.ResultChan()
+			ev, more := <-wifChan // <-w.wif.ResultChan()
 			if !more {
-				w.Log.Info().Msgf("Break event")
-				break
+				if w.watchState == watchStateStarted {
+					for !more {
+						w.Log.Info().Msgf("Restarting watch:%d", w.restartCount)
+						wifChan, err = w.getResultChan()
+						w.restartCount++
+						if w.restartFunc != nil {
+							w.restartFunc()
+						}
+						if err != nil {
+							w.Log.Error().Err(err).Msgf("Error restarting watch:%d", w.restartCount)
+							time.Sleep(5 * time.Second)
+							continue
+						}
+						more = true
+					}
+					continue
+				} else {
+					w.Log.Info().Msgf("Break event")
+					break
+				}
 			}
 			obj, found := ev.Object.(metav1.Object)
 			if !found {
@@ -177,14 +217,17 @@ func (w *Watcher[R, RO, C, L]) Start() error {
 }
 
 func (w *Watcher[R, RO, C, L]) Stop() {
-	if w.wif != nil {
+	if w.watchState == watchStateStarted {
+		w.watchState = watchStateStopping
 		w.wif.Stop()
 		w.Log.Debug().Msg("Waiting for watcher to stop")
 		w.watcher.Wait()
+		w.watchState = watchStateStopped
 		w.wif = nil
+		w.restartCount = 0
 		w.state = make(map[string]RO)
 		w.bindings = make(map[string]types.WatchFunc[RO])
 	} else {
-		w.Log.Warn().Msg("Not started")
+		w.Log.Warn().Msgf("Not started:%s", w.watchState)
 	}
 }

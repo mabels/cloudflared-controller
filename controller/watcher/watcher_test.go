@@ -1,12 +1,14 @@
 package watcher
 
 import (
+	"context"
 	"os"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/types"
+	"github.com/rs/zerolog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -48,6 +50,59 @@ func TestWatcher(t *testing.T) {
 		if !found {
 			t.Error("GetState returned non-default namespace")
 		}
+		wt.Stop()
+	}
+}
+
+func TestWatcherRetry(t *testing.T) {
+	log := zerolog.New(os.Stderr).With().Logger()
+	config, _ := clientcmd.BuildConfigFromFlags("", os.Getenv("HOME")+"/.kube/config")
+	k8s, _ := kubernetes.NewForConfig(config)
+	restartWg := sync.WaitGroup{}
+
+	wt := &Watcher[corev1.Namespace, *corev1.Namespace, types.WatcherBindingNamespace, types.WatcherBindingNamespaceClient]{
+		watchState:  watchStateStopped,
+		restartFunc: func() { restartWg.Done() },
+		state:       make(map[string]*corev1.Namespace),
+		bindings:    make(map[string]types.WatchFunc[*corev1.Namespace]),
+		WatcherConfig: types.WatcherConfig[corev1.Namespace, *corev1.Namespace, types.WatcherBindingNamespace, types.WatcherBindingNamespaceClient]{
+			Log:     &log,
+			Context: context.Background(),
+			K8sClient: types.WatcherBindingNamespaceClient{
+				Nif: k8s.CoreV1().Namespaces(),
+			},
+		},
+	}
+	for i := 0; i < 3; i++ {
+		err := wt.Start()
+		if err != nil {
+			t.Error("Start returned error:", err)
+		}
+		states := wt.GetState()
+		if len(states) == 0 {
+			t.Error("GetState returned non-zero length")
+		}
+		found := false
+		for _, state := range states {
+			if state.Name == "default" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("GetState returned non-default namespace")
+		}
+		if wt.restartCount != 0 {
+			t.Error("restartCount is not zero")
+		}
+		for i := 0; i < 10; i++ {
+			restartWg.Add(1)
+			wt.wif.Stop()
+			restartWg.Wait()
+			if wt.restartCount != i+1 {
+				t.Errorf("restartCount is not one: %d", wt.restartCount)
+			}
+		}
+
 		wt.Stop()
 	}
 }
