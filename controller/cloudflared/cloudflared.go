@@ -8,11 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/k8s_data"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
@@ -27,27 +29,43 @@ type runningInstance struct {
 	configfname        string
 	cmd                *exec.Cmd
 	log                *zerolog.Logger
+	currentConfigMap   *corev1.ConfigMap
 	unregisterShutdown func()
 }
 
 func (ri *runningInstance) buildCredentialsFile(cfc types.CFController, cm *corev1.ConfigMap) (credfname string, err error) {
-	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId]
+	tunnelIdStr, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId()]
 	if !found {
-		return credfname, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId)
+		return credfname, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId())
 	}
-	tunnelName, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelName]
+	tunnelId, err := uuid.Parse(tunnelIdStr)
+	if err != nil {
+		return credfname, fmt.Errorf("invalid uuid %s:%v", tunnelIdStr, err)
+	}
+
+	var ns, name string
+	secretName, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelK8sSecret()]
 	if !found {
-		return credfname, fmt.Errorf("missing annotation %s", config.AnnotationCloudflareTunnelName)
+		tunnelName, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelName()]
+		if !found {
+			return credfname, fmt.Errorf("missing annotation %s", config.AnnotationCloudflareTunnelName())
+		}
+		utp := types.CFTunnelParameter{
+			Namespace: cfc.Cfg().CloudFlare.TunnelConfigMapNamespace,
+			Name:      tunnelName,
+		}
+		ns = utp.K8SSecretName().Namespace
+		name = utp.K8SSecretName().Name
+	} else {
+		ret := types.FromFQDN(secretName, cfc.Cfg().CloudFlare.TunnelConfigMapNamespace)
+		ns = ret.Namespace
+		name = ret.Name
 	}
-	utp := UpsertTunnelParams{
-		Namespace: cm.Namespace,
-		Name:      &tunnelName,
-	}
-	cts, err := MatchK8SSecret(cfc, tunnelId, utp)
+	cts, err := k8s_data.FetchSecret(cfc, ns, name, tunnelIdStr)
 	if err != nil {
 		return credfname, err
 	}
-	fname := fmt.Sprintf("%s.json", tunnelId)
+	fname := fmt.Sprintf("%s.json", tunnelId.String())
 	bytesCts, err := json.Marshal(cts)
 	if err != nil {
 		return credfname, err
@@ -56,14 +74,14 @@ func (ri *runningInstance) buildCredentialsFile(cfc types.CFController, cm *core
 	return credfname, os.WriteFile(credfname, bytesCts, 0600)
 }
 
-func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (*config.CFConfigYaml, error) {
-	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId]
+func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (*types.CFConfigYaml, error) {
+	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId()]
 	if !found {
-		return nil, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId)
+		return nil, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId())
 	}
-	cfis := []config.CFConfigIngress{}
+	cfis := []types.CFConfigIngress{}
 	for _, rules := range cm.Data {
-		rule := []config.CFConfigIngress{}
+		rule := []types.CFConfigIngress{}
 		err := yaml.Unmarshal([]byte(rules), &rule)
 		if err != nil {
 			ri.log.Error().Err(err).Str("rules", rules).Msg("error unmarshalling rules")
@@ -71,8 +89,8 @@ func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (
 		}
 		cfis = append(cfis, rule...)
 	}
-	cfis = append(cfis, config.CFConfigIngress{Service: "http_status:404"})
-	igss := config.CFConfigYaml{
+	cfis = append(cfis, types.CFConfigIngress{Service: "http_status:404"})
+	igss := types.CFConfigYaml{
 		Tunnel:          tunnelId,
 		CredentialsFile: credfname,
 		Ingress:         cfis,
@@ -155,14 +173,17 @@ type Tunnel struct {
 }
 
 func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
+
 	id := uuid.New()
 	log := cfc.Log().With().Str("id", id.String()).Str("component", "cloudflared").Logger()
 	ri := &runningInstance{
-		tunnel:     t,
-		id:         id,
-		currentDir: path.Join(cfc.Cfg().RunningInstanceDir, id.String()),
-		log:        &log,
+		tunnel:           t,
+		id:               id,
+		currentConfigMap: cm.DeepCopy(),
+		currentDir:       path.Join(cfc.Cfg().RunningInstanceDir, id.String()),
+		log:              &log,
 	}
+
 	ri.unregisterShutdown = cfc.RegisterShutdown(func() {
 		ri.Stop(cfc)
 	})
@@ -193,7 +214,7 @@ func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap
 			log.Error().Err(err).Str("tunnelId", cfgYaml.Tunnel).Msg("error parsing tunnel id")
 			continue
 		}
-		RegisterCFDnsEndpoint(cfc, uid, rule.Hostname)
+		registerCFDnsEndpoint(cfc, uid, rule.Hostname)
 	}
 	err = ri.Start(cfc)
 	if err != nil {
@@ -230,6 +251,11 @@ func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap
 func (t *Tunnel) Start(cfc types.CFController, cm *corev1.ConfigMap) {
 	t.processing.Lock()
 	defer t.processing.Unlock()
+	if t.ri != nil && reflect.DeepEqual(t.ri.currentConfigMap.Data, cm.Data) {
+		t.ri.log.Info().Msg("already running no change")
+		return
+	}
+
 	instanceToStop := t.ri
 	newri, err := t.newRunningInstance(cfc, cm)
 	if err != nil {
@@ -283,13 +309,27 @@ func (tr *TunnelRunner) Stop(cfc types.CFController, cm *corev1.ConfigMap) {
 	tr.getTunnel(cm.Name).Stop(cfc)
 }
 
-func ConfigMapHandler(_cfc types.CFController) func(cms []*corev1.ConfigMap, ev watch.Event) {
+func ConfigMapHandlerStartCloudflared(_cfc types.CFController) func(cms []*corev1.ConfigMap, ev watch.Event) {
 	cfc := _cfc.WithComponent("cloudflared")
 	tr := NewTunnelRunner()
 	return func(cms []*corev1.ConfigMap, ev watch.Event) {
 		cm, found := ev.Object.(*corev1.ConfigMap)
 		if !found {
 			cfc.Log().Error().Msg("error casting object")
+			return
+		}
+		state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
+		if !found {
+			cfc.Log().Error().Msg("error getting state")
+			return
+		}
+		switch state {
+		case "ready":
+		case "preparing":
+			cfc.Log().Debug().Msg("ignoring preparing state")
+			return
+		default:
+			cfc.Log().Error().Str("state", state).Msg("unknown state")
 			return
 		}
 		switch ev.Type {

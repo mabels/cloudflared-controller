@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
@@ -21,6 +23,7 @@ import (
 	"github.com/mabels/cloudflared-controller/controller/svc"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/mabels/cloudflared-controller/controller/watcher"
+	"github.com/mabels/cloudflared-controller/utils"
 
 	"github.com/rs/zerolog"
 
@@ -48,6 +51,8 @@ func watchedNamespaces(cfc types.CFController) (types.Watcher[*corev1.Namespace]
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	klog.SetOutput(utils.ConnectKlog2ZeroLog(&_log))
+	klog.LogToStderr(false)
 	cfc := controller.NewCFController(&_log)
 	cfg, err := config.GetConfig(cfc.Log(), Version)
 	if err != nil {
@@ -102,39 +107,48 @@ func main() {
 
 	if !cfc.Cfg().NoCloudFlared {
 		cfc.K8sData().TunnelConfigMaps = k8s_data.StartWaitForTunnelConfigMaps(cfc)
-		cfc.K8sData().TunnelConfigMaps.Register(cloudflared.ConfigMapHandler(cfc))
+		cfc.RegisterShutdown(
+			cfc.K8sData().TunnelConfigMaps.Register(
+				cloudflared.ConfigMapHandlerStartCloudflared(cfc)))
 	}
 
-	runningLeaders := []func(){}
-	leader.LeaderSelection(cfc, leaderelection.LeaderCallbacks{
-		OnStartedLeading: func(c context.Context) {
-			if len(runningLeaders) > 0 {
-				cfc.Log().Fatal().Msg("Already running leader")
-			}
-			cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("became leader, starting work.")
-			go func() {
-				// this might been take to long for the election selection
-				runningLeaders = append(runningLeaders, ingress.Start(cfc), svc.Start(cfc))
-			}()
-		},
-		OnStoppedLeading: func() {
-			cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("no longer the leader, staying inactive.")
-			if len(runningLeaders) == 0 {
-				cfc.Log().Fatal().Msg("Try to stop leader, but not running")
-			}
-			my := runningLeaders
-			runningLeaders = []func(){}
-			for _, f := range my {
-				f()
-			}
-		},
-		OnNewLeader: func(current_id string) {
-			if current_id == cfc.Cfg().Identity {
-				return
-			}
-			cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msgf("new leader is %s", current_id)
-		},
-	})
+	for {
+		runningLeaders := []func(){}
+		leader.LeaderSelection(cfc, leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(c context.Context) {
+				if len(runningLeaders) > 0 {
+					cfc.Log().Fatal().Msg("Already running leader")
+				}
+				cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("became leader, starting work.")
+				go func() {
+					// this might been take to long for the election selection
+					runningLeaders = append(runningLeaders,
+						ingress.Start(cfc),
+						svc.Start(cfc),
+						cloudflared.ConfigMapHandlerPrepareCloudflared(cfc))
+				}()
+			},
+			OnStoppedLeading: func() {
+				cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("no longer the leader, staying inactive.")
+				if len(runningLeaders) == 0 {
+					cfc.Log().Fatal().Msg("Try to stop leader, but not running")
+				}
+				my := runningLeaders
+				runningLeaders = []func(){}
+				for _, f := range my {
+					f()
+				}
+			},
+			OnNewLeader: func(current_id string) {
+				if current_id == cfc.Cfg().Identity {
+					return
+				}
+				cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msgf("new leader is %s", current_id)
+			},
+		})
+		time.Sleep(time.Second * 5)
+		cfc.Log().Info().Msg("Restarting leader selection")
+	}
 
 	// for {
 	// 	time.Sleep(time.Second)

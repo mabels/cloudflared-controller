@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/rs/zerolog"
 )
 
@@ -14,7 +14,7 @@ func TestNewCFController(t *testing.T) {
 	if cf == nil {
 		t.Fatal("NewCFController returned nil")
 	}
-	cfg := &config.CFControllerConfig{}
+	cfg := &types.CFControllerConfig{}
 	cf.SetCfg(cfg)
 	if cf.Cfg() != cfg {
 		t.Fatal("NewCFController returned nil logger")

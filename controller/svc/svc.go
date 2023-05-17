@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mabels/cloudflared-controller/controller/cloudflared"
 	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/k8s_data"
 	"github.com/mabels/cloudflared-controller/controller/namespaces"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/mabels/cloudflared-controller/controller/watcher"
@@ -22,25 +22,32 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	})
 
 	annotations := svc.GetAnnotations()
-	externalName, ok := annotations[config.AnnotationCloudflareTunnelExternalName]
+	externalName, ok := annotations[config.AnnotationCloudflareTunnelExternalName()]
 	if !ok {
 		//err := fmt.Errorf("does not have %s annotation", config.AnnotationCloudflareTunnelExternalName)
 		cfc.Log().Debug().Str("kind", svc.Kind).Str("name", svc.Name).
-			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
-		cloudflared.RemoveFromCloudflaredConfig(cfc, "service", &svc.ObjectMeta)
+			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName())
+		cfc.K8sData().TunnelConfigMaps.RemoveConfigMap(cfc, "service", &svc.ObjectMeta)
 		return nil
 	}
-	tp, ts, err := cloudflared.PrepareTunnel(cfc, svc.Namespace, annotations, svc.GetLabels())
+
+	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
 	if err != nil {
+		cfc.Log().Error().Err(err).Msg("Failed to find tunnel param")
 		return err
 	}
 
-	err = cloudflared.RegisterCFDnsEndpoint(cfc, *tp.TunnelID, externalName)
-	if err != nil {
-		return err
-	}
-	cfcis := []config.CFConfigIngress{}
-	mapping := []cloudflared.CFEndpointMapping{}
+	// tp, err := cloudflared.PrepareTunnel(cfc, &svc.ObjectMeta)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// err = cloudflared.RegisterCFDnsEndpoint(cfc, tp.ID, externalName)
+	// if err != nil {
+	// 	return err
+	// }
+	cfcis := []types.CFConfigIngress{}
+	mapping := []types.CFEndpointMapping{}
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != corev1.ProtocolTCP {
 			cfc.Log().Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
@@ -61,21 +68,21 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			}
 		}
 		svcUrl := fmt.Sprintf("%s://%s%s", schema, svc.Name, urlPort)
-		mapping = append(mapping, cloudflared.CFEndpointMapping{
+		mapping = append(mapping, types.CFEndpointMapping{
 			External: externalName,
 			Internal: svcUrl,
 		})
-		cci := config.CFConfigIngress{
+		cci := types.CFConfigIngress{
 			Hostname: externalName,
 			Path:     "/",
 			Service:  svcUrl,
-			OriginRequest: &config.CFConfigOriginRequest{
+			OriginRequest: &types.CFConfigOriginRequest{
 				HttpHostHeader: svc.Name,
 			},
 		}
 		cfcis = append(cfcis, cci)
 	}
-	err = cloudflared.WriteCloudflaredConfig(cfc, "service", svc.Name, tp, ts, cfcis)
+	err = cfc.K8sData().TunnelConfigMaps.UpsertConfigMap(cfc, tparam, "service", &svc.ObjectMeta, cfcis)
 	if err != nil {
 		return err
 	}
@@ -128,12 +135,12 @@ func startServiceWatcher(cfc types.CFController, ns string) (watcherBindingServi
 			return
 		}
 		annotations := svc.GetAnnotations()
-		_, foundCTN := annotations[config.AnnotationCloudflareTunnelName]
+		_, foundCTN := annotations[config.AnnotationCloudflareTunnelName()]
 		// _, foundCID := annotations[config.AnnotationCloudflareTunnelId]
 		if !foundCTN {
 			log.Debug().Str("uid", string(svc.GetUID())).Str("name", svc.Name).
-				Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName)
-			cloudflared.RemoveFromCloudflaredConfig(cfc, "service", &svc.ObjectMeta)
+				Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName())
+			cfc.K8sData().TunnelConfigMaps.RemoveConfigMap(cfc, "service", &svc.ObjectMeta)
 			return
 		}
 		var err error
@@ -143,7 +150,7 @@ func startServiceWatcher(cfc types.CFController, ns string) (watcherBindingServi
 		case watch.Modified:
 			err = updateConfigMap(cfc, svc)
 		case watch.Deleted:
-			cloudflared.RemoveFromCloudflaredConfig(cfc, "service", &svc.ObjectMeta)
+			cfc.K8sData().TunnelConfigMaps.RemoveConfigMap(cfc, "service", &svc.ObjectMeta)
 		default:
 			log.Error().Msgf("Unknown event type: %s", ev.Type)
 		}

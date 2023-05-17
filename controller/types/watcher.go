@@ -66,3 +66,5 @@ type Watcher[RO runtime.Object] interface {
 // func (w *Watcher[R, RO, I, L]) Start() error {
 // 	panic("implement me")
 // }
+
+// https://pkg.go.dev/k8s.io/client-go/tools/watch#NewIndexerInformerWatcher

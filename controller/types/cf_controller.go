@@ -3,7 +3,6 @@ package types
 import (
 	"context"
 
-	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/rs/zerolog"
 )
 
@@ -13,8 +12,8 @@ type CFController interface {
 	Shutdown() error
 	Log() *zerolog.Logger
 	SetLog(*zerolog.Logger)
-	Cfg() *config.CFControllerConfig
-	SetCfg(*config.CFControllerConfig)
+	Cfg() *CFControllerConfig
+	SetCfg(*CFControllerConfig)
 	Rest() RestClients
 	K8sData() *K8sData
 	Context() context.Context

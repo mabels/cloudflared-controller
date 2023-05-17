@@ -1,12 +1,16 @@
 package k8s_data
 
 import (
+	"fmt"
+	"reflect"
+	"regexp"
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/mabels/cloudflared-controller/controller/namespaces"
+	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/mabels/cloudflared-controller/controller/watcher"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/watch"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,15 +29,19 @@ func (wbn watcherBindingNamespace) stop() {
 }
 
 type configMapBindings struct {
-	cm corev1.ConfigMap
+	cm   *corev1.ConfigMap
+	lock sync.Mutex
 }
 
 type tunnelConfigMapEvent func([]*corev1.ConfigMap, watch.Event)
 
+var reSanitzeNice = regexp.MustCompile(`[^_\\-\\.a-zA-Z0-9]+`)
+var reSanitzeAlpha = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+
 type tunnelConfigMaps struct {
 	cmsLock sync.Mutex
 	// key namespace/name
-	cms map[string]configMapBindings
+	cms map[string]*configMapBindings
 
 	fnsLock sync.Mutex
 	// key uuid
@@ -46,11 +54,108 @@ type tunnelConfigMaps struct {
 
 func newTunnelConfigMaps() *tunnelConfigMaps {
 	ret := &tunnelConfigMaps{
-		cms:      make(map[string]configMapBindings),
+		cms:      make(map[string]*configMapBindings),
 		fns:      make(map[string]tunnelConfigMapEvent),
 		watchers: make(map[string]watcherBindingNamespace),
 	}
 	return ret
+}
+
+func cmKey(kind, ns, name string) string {
+	if kind == "" {
+		panic("kind cannot be empty")
+	}
+	return reSanitzeNice.ReplaceAllString(fmt.Sprintf("%s-%s-%s", kind, ns, name), "_")
+}
+
+func UpsertConfigMap(cfc types.CFController, tparam *types.CFTunnelParameter, cm *corev1.ConfigMap) error {
+
+	client := cfc.Rest().K8s().CoreV1().ConfigMaps(tparam.K8SConfigMapName().Namespace)
+	toUpdate, err := client.Get(cfc.Context(), tparam.K8SConfigMapName().Name, metav1.GetOptions{})
+	if err != nil {
+		_, err = client.Create(cfc.Context(), cm, metav1.CreateOptions{})
+	} else {
+		for k, v := range cm.ObjectMeta.Annotations {
+			toUpdate.ObjectMeta.Annotations[k] = v
+		}
+		for k, v := range cm.Data {
+			toUpdate.Data[k] = v
+		}
+		_, err = client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
+	}
+	return err
+}
+
+func (ts *tunnelConfigMaps) lockConfigMap(kind string, tparam *types.CFTunnelParameter) func() {
+	key := cmKey(kind, tparam.K8SConfigMapName().Namespace, tparam.K8SConfigMapName().Name)
+	ts.cmsLock.Lock()
+	cmb, ok := ts.cms[key]
+	if !ok {
+		cmb = &configMapBindings{}
+		ts.cms[key] = cmb
+	}
+	ts.cmsLock.Unlock()
+	cmb.lock.Lock()
+	return func() {
+		cmb.lock.Unlock()
+	}
+}
+
+func (ts *tunnelConfigMaps) UpsertConfigMap(cfc types.CFController, tparam *types.CFTunnelParameter, kind string, meta *metav1.ObjectMeta, cfcis []types.CFConfigIngress) error {
+	yCFConfigIngressByte, err := yaml.Marshal(cfcis)
+	if err != nil {
+		cfc.Log().Error().Err(err).Msg("Error marshaling cfcis")
+		return err
+	}
+
+	annos := make(map[string]string)
+	for k, v := range meta.Annotations {
+		annos[k] = v
+	}
+	annos[config.AnnotationCloudflareTunnelK8sSecret()] = tparam.K8SSecretName().FQDN
+	annos[config.AnnotationCloudflareTunnelState()] = "preparing"
+
+	delete(annos, config.AnnotationCloudflareTunnelExternalName())
+	delete(annos, config.AnnotationCloudflareTunnelK8sConfigMap())
+
+	cm := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        tparam.K8SConfigMapName().Name,
+			Namespace:   tparam.K8SConfigMapName().Namespace,
+			Labels:      config.CfLabels(meta.Labels, cfc),
+			Annotations: annos,
+		},
+		Data: map[string]string{
+			cmKey(kind, meta.Namespace, meta.Name): string(yCFConfigIngressByte),
+		},
+	}
+
+	unlock := ts.lockConfigMap(kind, tparam)
+	defer unlock()
+	return UpsertConfigMap(cfc, tparam, &cm)
+}
+
+func (ts *tunnelConfigMaps) RemoveConfigMap(cfc types.CFController, kind string, meta *metav1.ObjectMeta) {
+	for _, toUpdate := range cfc.K8sData().TunnelConfigMaps.Get() {
+		key := cmKey(kind, meta.Namespace, meta.Name)
+		needChange := len(toUpdate.Data)
+		delete(toUpdate.Data, key)
+		if needChange != len(toUpdate.Data) {
+			unlock := ts.lockConfigMap(kind, &types.CFTunnelParameter{
+				Namespace: toUpdate.GetNamespace(),
+				Name:      toUpdate.GetName(),
+			})
+			client := cfc.Rest().K8s().CoreV1().ConfigMaps(toUpdate.GetNamespace())
+			toUpdate.Annotations[config.AnnotationCloudflareTunnelState()] = "preparing"
+			_, err := client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
+			unlock()
+			if err != nil {
+				cfc.Log().Error().Err(err).Str("name", key).Msg("Error updating config")
+				continue
+			}
+			cfc.Log().Debug().Str("key", key).Msg("Removing from config")
+		}
+	}
 }
 
 func (tcm *tunnelConfigMaps) Register(fn func([]*corev1.ConfigMap, watch.Event)) func() {
@@ -77,7 +182,9 @@ func (tcm *tunnelConfigMaps) Get() []*corev1.ConfigMap {
 	defer tcm.cmsLock.Unlock()
 	ret := make([]*corev1.ConfigMap, 0, len(tcm.cms))
 	for _, cm := range tcm.cms {
-		ret = append(ret, &cm.cm)
+		if cm.cm != nil {
+			ret = append(ret, cm.cm)
+		}
 	}
 	return ret
 }
@@ -88,17 +195,100 @@ func cmsKey(cm *corev1.ConfigMap) string {
 func (tcm *tunnelConfigMaps) upsert(cm *corev1.ConfigMap) {
 	key := cmsKey(cm)
 	tcm.cmsLock.Lock()
-	defer tcm.cmsLock.Unlock()
-	tcm.cms[key] = configMapBindings{
-		cm: *cm,
+	currentCm, found := tcm.cms[key]
+	if found && currentCm.cm != nil &&
+		reflect.DeepEqual(currentCm.cm.Data, cm.Data) &&
+		reflect.DeepEqual(currentCm.cm.Labels, cm.Labels) &&
+		reflect.DeepEqual(currentCm.cm.Annotations, cm.Annotations) {
+		tcm.cmsLock.Unlock()
+		return
+	}
+	if !found {
+		tcm.cms[key] = &configMapBindings{}
+	}
+	tcm.cms[key].cm = cm.DeepCopy()
+	tcm.cmsLock.Unlock()
+	typ := watch.Modified
+	if !found {
+		typ = watch.Added
+	}
+	tcm.fireEvents(cm, typ)
+}
+
+func (tcm *tunnelConfigMaps) fireEvents(cm *corev1.ConfigMap, typ watch.EventType) {
+	tcm.fnsLock.Lock()
+	defer tcm.fnsLock.Unlock()
+	cms := tcm.Get()
+	for _, fn := range tcm.fns {
+		fn(cms, watch.Event{
+			Type:   typ,
+			Object: cm,
+		})
 	}
 }
 
 func (tcm *tunnelConfigMaps) delete(cm *corev1.ConfigMap) {
 	key := cmsKey(cm)
 	tcm.cmsLock.Lock()
-	defer tcm.cmsLock.Unlock()
-	delete(tcm.watchers, key)
+	ocm, found := tcm.cms[key]
+	if found {
+		delete(tcm.watchers, key)
+		tcm.cmsLock.Unlock()
+		tcm.fireEvents(ocm.cm, watch.Deleted)
+	} else {
+		tcm.cmsLock.Unlock()
+	}
+}
+
+func perNamespaceStartConfigMapsWatcher(cfc types.CFController, tcm *tunnelConfigMaps, ns string) (watcherBindingNamespace, error) {
+	log := cfc.Log().With().Str("watcher", "configMaps").Str("namespace", ns).Logger()
+	wt := watcher.NewWatcher(
+		types.WatcherConfig[corev1.ConfigMap, *corev1.ConfigMap, types.WatcherBindingConfigMap, types.WatcherBindingConfigMapClient]{
+			ListOptions: metav1.ListOptions{
+				LabelSelector: cfc.Cfg().ConfigMapLabelSelector,
+			},
+			Log:     &log,
+			Context: cfc.Context(),
+			K8sClient: types.WatcherBindingConfigMapClient{
+				Cif: cfc.Rest().K8s().CoreV1().ConfigMaps(ns),
+			},
+		})
+
+	unreg := wt.RegisterEvent(func(_ []*corev1.ConfigMap, ev watch.Event) {
+		cm, ok := ev.Object.(*corev1.ConfigMap)
+		if !ok {
+			cfc.Log().Error().Any("ev", ev).Msg("Failed to cast to ConfigMap")
+			return
+		}
+		switch ev.Type {
+		case watch.Added:
+			tcm.upsert(cm)
+		case watch.Modified:
+			tcm.upsert(cm)
+		case watch.Deleted:
+			tcm.delete(cm)
+		default:
+			cfc.Log().Error().Any("ev", ev).Str("type", string(ev.Type)).Msg("Got unknown event")
+		}
+		tcm.fnsLock.Lock()
+		fns := make([]tunnelConfigMapEvent, 0, len(tcm.fns))
+		for _, fn := range tcm.fns {
+			fns = append(fns, fn)
+		}
+		tcm.fnsLock.Unlock()
+		cms := tcm.Get()
+		for _, fn := range fns {
+			fn(cms, ev)
+		}
+
+	})
+	err := wt.Start()
+	return watcherBindingNamespace{
+		watcher:          wt,
+		unregisterEvent:  unreg,
+		tunnelConfigMaps: tcm,
+		namespace:        ns,
+	}, err
 }
 
 // func (tcm *tunnelConfigMaps) Get() []types.TunnelConfigMap {
@@ -183,96 +373,3 @@ func (tcm *tunnelConfigMaps) delete(cm *corev1.ConfigMap) {
 // 		return wif, nil
 // 	}
 // }
-
-func startConfigMapsWatcher(cfc types.CFController, tcm *tunnelConfigMaps, ns string) (watcherBindingNamespace, error) {
-	log := cfc.Log().With().Str("watcher", "configMaps").Str("namespace", ns).Logger()
-	wt := watcher.NewWatcher(
-		types.WatcherConfig[corev1.ConfigMap, *corev1.ConfigMap, types.WatcherBindingConfigMap, types.WatcherBindingConfigMapClient]{
-			ListOptions: metav1.ListOptions{
-				LabelSelector: cfc.Cfg().ConfigMapLabelSelector,
-			},
-			Log:     &log,
-			Context: cfc.Context(),
-			K8sClient: types.WatcherBindingConfigMapClient{
-				Cif: cfc.Rest().K8s().CoreV1().ConfigMaps(ns),
-			},
-		})
-	unreg := wt.RegisterEvent(func(_ []*corev1.ConfigMap, ev watch.Event) {
-		cm, ok := ev.Object.(*corev1.ConfigMap)
-		if !ok {
-			cfc.Log().Error().Any("ev", ev).Msg("Failed to cast to ConfigMap")
-			return
-		}
-		switch ev.Type {
-		case watch.Added:
-			tcm.upsert(cm)
-		case watch.Modified:
-			tcm.upsert(cm)
-		case watch.Deleted:
-			tcm.delete(cm)
-		default:
-			cfc.Log().Error().Any("ev", ev).Str("type", string(ev.Type)).Msg("Got unknown event")
-		}
-		tcm.fnsLock.Lock()
-		fns := make([]tunnelConfigMapEvent, 0, len(tcm.fns))
-		for _, fn := range tcm.fns {
-			fns = append(fns, fn)
-		}
-		tcm.fnsLock.Unlock()
-		cms := tcm.Get()
-		for _, fn := range fns {
-			fn(cms, ev)
-		}
-
-	})
-	err := wt.Start()
-	return watcherBindingNamespace{
-		watcher:          wt,
-		unregisterEvent:  unreg,
-		tunnelConfigMaps: tcm,
-		namespace:        ns,
-	}, err
-}
-
-func StartWaitForTunnelConfigMaps(cfc types.CFController) types.TunnelConfigMaps {
-	tcm := newTunnelConfigMaps()
-	cfc.K8sData().Namespaces.RegisterEvent(func(state []*corev1.Namespace, ev watch.Event) {
-		ns, found := ev.Object.(*corev1.Namespace)
-		if !found {
-			cfc.Log().Error().Any("ev", ev).Msg("Failed to cast to Namespace")
-			return
-		}
-		if namespaces.SkipNamespace(cfc, ns.Name) {
-			return
-		}
-		switch ev.Type {
-		case watch.Added:
-			tcm.watcherLock.Lock()
-			if _, ok := tcm.watchers[ns.Name]; !ok {
-				wns, err := startConfigMapsWatcher(cfc, tcm, ns.Name)
-				if err != nil {
-					cfc.Log().Error().Err(err).Msg("Failed to start ConfigMap watcher")
-					tcm.watcherLock.Unlock()
-					return
-				}
-				tcm.watchers[ns.Name] = wns
-			}
-			tcm.watcherLock.Unlock()
-		case watch.Modified:
-			// tr.Start(cfc, &ev.Cm)
-		case watch.Deleted:
-			// tr.Stop(cfc, &ev.Cm)
-			tcm.watcherLock.Lock()
-			if _, ok := tcm.watchers[ns.Name]; ok {
-				wns := tcm.watchers[ns.Name]
-				delete(tcm.watchers, ns.Name)
-				wns.unregisterEvent()
-				wns.stop()
-			}
-			tcm.watcherLock.Unlock()
-		default:
-			cfc.Log().Error().Any("ev", ev).Str("type", string(ev.Type)).Msg("Got unknown event")
-		}
-	})
-	return tcm
-}

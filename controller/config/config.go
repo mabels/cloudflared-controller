@@ -3,43 +3,18 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 )
 
-type CFControllerConfig struct {
-	KubeConfigFile         string
-	PresetNamespaces       []string
-	Identity               string
-	NoCloudFlared          bool
-	Version                string
-	Debug                  bool
-	ShowVersion            bool
-	RunningInstanceDir     string
-	CloudFlaredFname       string
-	ChannelSize            int
-	RestartDelay           time.Duration
-	ConfigMapLabelSelector string
-	CloudFlare             struct {
-		ApiUrl    string
-		ApiToken  string
-		AccountId string
-		// ZoneId    string
-	}
-	Leader struct {
-		Name          string
-		Namespace     string
-		LeaseDuration time.Duration
-		RenewDeadline time.Duration
-		RetryPeriod   time.Duration
-	}
-}
-
-func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error) {
-	cfg := CFControllerConfig{
+func GetConfig(log *zerolog.Logger, version string) (*types.CFControllerConfig, error) {
+	cfg := types.CFControllerConfig{
 		Version: version,
 	}
 	cfg.CloudFlare.ApiUrl = os.Getenv("CLOUDFLARE_API_URL")
@@ -60,6 +35,8 @@ func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error)
 	pflag.StringVarP(&cfg.RunningInstanceDir, "running-instance-dir", "R", "./", "running instance directory")
 	pflag.StringVarP(&cfg.ConfigMapLabelSelector, "config-map-label", "C", "app=cloudflared-controller", "labelselector for our configmap")
 	pflag.StringVar(&cfg.CloudFlaredFname, "cloudflared-fname", "cloudflared", "cloudflared binary filename")
+	pflag.StringVar(&cfg.ClusterName, "cloudflared-clustername", "k8s", "prefix the CF tunnel name with this cluster name")
+	pflag.StringVar(&cfg.CloudFlare.TunnelConfigMapNamespace, "cloudflared-tunnel-configmap-namespace", "default", "default namespace for cloudflared tunnel configmaps")
 	pflag.DurationVarP(&cfg.Leader.LeaseDuration, "leader-lease-duration", "l", 15*time.Second, "leader lease duration")
 	pflag.DurationVarP(&cfg.Leader.RenewDeadline, "leader-renew-deadline", "r", 10*time.Second, "leader renew deadline")
 	pflag.DurationVarP(&cfg.Leader.RetryPeriod, "leader-retry-period", "p", 2*time.Second, "leader retry period")
@@ -83,18 +60,76 @@ func GetConfig(log *zerolog.Logger, version string) (*CFControllerConfig, error)
 	return &cfg, nil
 }
 
-const (
-	AnnotationCloudflareTunnelName         = "cloudflare.com/tunnel-name"
-	AnnotationCloudflareTunnelId           = "cloudflare.com/tunnel-id"
-	AnnotationCloudflareTunnelExternalName = "cloudflare.com/tunnel-external-name"
-	AnnotationCloudflareTunnelPort         = "cloudflare.com/tunnel-port"
-	// CloudflareTunnelAccountId    = "cloudflare.com/tunnel-account-id"
-	// CloudflareTunnelZoneId       = "cloudflare.com/tunnel-zone-id"
-	AnnotationCloudflareTunnelKeySecret = "cloudflare.com/tunnel-key-secret"
-)
+var AnnotationsPrefix = "cloudflare.com"
+
+func AnnotationCloudflareTunnelName() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-name")
+}
+func AnnotationCloudflareTunnelId() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-id")
+}
+func AnnotationCloudflareTunnelCFDName() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-cfd-name")
+}
+func AnnotationCloudflareTunnelExternalName() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-external-name")
+}
+func AnnotationCloudflareTunnelState() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-state")
+}
+
+// AnnotationCloudflareTunnelConfigMap    = "cloudflare.com/tunnel-configmap"
+// "preparing", "ready"
+func AnnotationCloudflareTunnelPort() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-port")
+}
+
+// CloudflareTunnelAccountId    = "cloudflare.com/tunnel-account-id"
+// CloudflareTunnelZoneId       = "cloudflare.com/tunnel-zone-id"
+func AnnotationCloudflareTunnelK8sSecret() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-k8s-secret")
+}
+func AnnotationCloudflareTunnelK8sConfigMap() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-k8s-configmap")
+}
 
 const (
 	LabelCloudflaredControllerVersion = "cloudflared-controller/version"
 	// LabelCloudflaredControllerManaged = "cloudflared-controller/managed"
 	// LabelCloudflaredControllerTunnelId = "cloudflared-controller/tunnel-id"
 )
+
+// func CfAnnotations(annos map[string]string, tparam *types.CFTunnelParameter) map[string]string {
+// 	ret := make(map[string]string)
+// 	for k, v := range annos {
+// 		ret[k] = v
+// 	}
+// 	return ret
+// }
+
+func CfTunnelName(cfc types.CFController, tp *types.CFTunnelParameter) string {
+	return fmt.Sprintf("%s/%s/%s", cfc.Cfg().ClusterName, tp.Namespace, tp.Name)
+}
+
+// var reLabelValues = regexp.MustCompile("[A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?")
+var reSanitzeNice = regexp.MustCompile(`[^_\\-\\.a-zA-Z0-9]+`)
+
+func CfLabels(labels map[string]string, cfc types.CFController) map[string]string {
+	ret := make(map[string]string)
+	for k, v := range labels {
+		ret[k] = v
+	}
+	v := reSanitzeNice.ReplaceAllString(cfc.Cfg().Version, "-")
+	if !("a" <= strings.ToLower(string(v[0])) && strings.ToLower(string(v[0])) <= "z") {
+		v = fmt.Sprintf("v%s", v)
+	}
+	ret[LabelCloudflaredControllerVersion] = v
+	tokens := strings.Split(strings.TrimSpace(cfc.Cfg().ConfigMapLabelSelector), "=")
+	if len(tokens) < 2 {
+		ret["app"] = "cloudflared-controller"
+		cfc.Log().Warn().Str("labelSelector", cfc.Cfg().ConfigMapLabelSelector).Msg("Invalid label selector, using default")
+	} else {
+		ret[tokens[0]] = tokens[1]
+	}
+	return ret
+}

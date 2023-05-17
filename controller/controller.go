@@ -5,7 +5,6 @@ import (
 
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/google/uuid"
-	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/rs/zerolog"
 )
@@ -15,7 +14,7 @@ type localController struct {
 	shutdownFns map[string]func()
 	rest        *RestClients
 	log         *zerolog.Logger
-	cfg         *config.CFControllerConfig
+	cfg         *types.CFControllerConfig
 	context     context.Context
 	cancelFunc  context.CancelFunc
 	k8sData     *types.K8sData
@@ -51,11 +50,11 @@ func NewCFController(log *zerolog.Logger) types.CFController {
 	return &cfc
 }
 
-func (cfc *localController) Cfg() *config.CFControllerConfig {
+func (cfc *localController) Cfg() *types.CFControllerConfig {
 	return cfc.cfg
 }
 
-func (cfc *localController) SetCfg(cfg *config.CFControllerConfig) {
+func (cfc *localController) SetCfg(cfg *types.CFControllerConfig) {
 	cfc.cfg = cfg
 }
 

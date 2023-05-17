@@ -1,0 +1,79 @@
+package cloudflared
+
+import (
+	"sync"
+
+	"github.com/mabels/cloudflared-controller/controller/config"
+	"github.com/mabels/cloudflared-controller/controller/types"
+	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+type CloudFlaredConfigMapHandler struct {
+	sync sync.Mutex
+}
+
+func (cfmh *CloudFlaredConfigMapHandler) WriteCloudflaredConfig(cfc types.CFController, kind string, resName string, tp *UpsertTunnelParams, cts *CFTunnelSecret, cfcis []config.CFConfigIngress) error {
+	yCFConfigIngressByte, err := yaml.Marshal(cfcis)
+	if err != nil {
+		cfc.Log().Error().Err(err).Msg("Error marshaling ingress")
+		return err
+	}
+	tp.Annotations = map[string]string{
+		config.AnnotationCloudflareTunnelKeySecret: tp.K8SSecretName().FQDN,
+	}
+
+	key := cmKey(kind, tp.Namespace, resName)
+	cm := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        tp.K8SConfigMapName().Name,
+			Namespace:   tp.Namespace,
+			Labels:      cfLabels(tp.Labels, cfc),
+			Annotations: cfAnnotations(tp.Annotations, *tp.Name, cts.TunnelID.String()),
+		},
+		Data: map[string]string{
+			key: string(yCFConfigIngressByte),
+		},
+	}
+
+	cfmh.sync.Lock()
+	defer cfmh.sync.Unlock()
+	client := cfc.Rest().K8s().CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
+	toUpdate, err := client.Get(cfc.Context(), tp.K8SConfigMapName().Name, metav1.GetOptions{})
+	if err != nil {
+		_, err = client.Create(cfc.Context(), &cm, metav1.CreateOptions{})
+	} else {
+		for k, v := range cm.Data {
+			toUpdate.Data[k] = v
+		}
+		_, err = client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
+	}
+
+	return err
+}
+
+func (cfmh *CloudFlaredConfigMapHandler) RemoveFromCloudflaredConfig(cfc types.CFController, kind string, meta *metav1.ObjectMeta) {
+	// panic("Not implemented")
+	name := meta.GetName()
+	tp := &UpsertTunnelParams{
+		Name:      &name,
+		Namespace: meta.GetNamespace(),
+	}
+	client := cfc.Rest().K8s().CoreV1().ConfigMaps(tp.K8SConfigMapName().Namespace)
+	for _, toUpdate := range cfc.K8sData().TunnelConfigMaps.Get() {
+		key := cmKey(kind, meta.Namespace, meta.Name)
+		needChange := len(toUpdate.Data)
+		delete(toUpdate.Data, key)
+		if needChange != len(toUpdate.Data) {
+			cfmh.sync.Lock()
+			defer cfmh.sync.Unlock()
+			_, err := client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
+			if err != nil {
+				cfc.Log().Error().Err(err).Str("name", tp.K8SConfigMapName().Name).Msg("Error updating config")
+				continue
+			}
+			cfc.Log().Debug().Str("key", key).Msg("Removing from config")
+		}
+	}
+}
