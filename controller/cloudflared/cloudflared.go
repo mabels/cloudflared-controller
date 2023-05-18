@@ -2,6 +2,7 @@ package cloudflared
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
@@ -20,10 +22,11 @@ import (
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"toolman.org/encoding/base56"
 )
 
 type runningInstance struct {
-	id                 uuid.UUID
+	id                 string // uuid.UUID
 	tunnel             *Tunnel
 	currentDir         string
 	configfname        string
@@ -124,7 +127,7 @@ func (ri *runningInstance) Stop(cfc types.CFController) {
 }
 
 func (ri *runningInstance) Start(cfc types.CFController) error {
-	log := cfc.Log().With().Str("component", "cloudflared").Str("id", ri.id.String()).Logger()
+	log := cfc.Log().With().Str("component", "cloudflared").Str("id", ri.id).Logger()
 	cfdFname, err := exec.LookPath(cfc.Cfg().CloudFlaredFname)
 	if err != nil {
 		return err
@@ -172,22 +175,45 @@ type Tunnel struct {
 	ri           *runningInstance
 }
 
-func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
+func idFromConfigMap(cm *corev1.ConfigMap) string {
+	keys := make([]string, 0, len(cm.Data))
+	for k, _ := range cm.Data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	data := make([]string, 0, 2*len(keys))
+	for _, k := range keys {
+		data = append(data, k, cm.Data[k])
+	}
+	hash := sha256.Sum256([]byte(strings.Join(data, ",")))
+	parts := make([]string, 0, len(hash)/(64/8))
+	for i := 0; i < len(hash); i += 64 / 8 {
+		id64 := uint64(hash[i])<<56 | uint64(hash[i+1])<<48 | uint64(hash[i+2])<<40 | uint64(hash[i+3])<<32 |
+			uint64(hash[i+4])<<24 | uint64(hash[i+5])<<16 | uint64(hash[i+6])<<8 | uint64(hash[i+7])
+		parts = append(parts, base56.Encode(uint64(id64)))
+	}
+	return strings.Join(parts, "-")
+}
 
-	id := uuid.New()
-	log := cfc.Log().With().Str("id", id.String()).Str("component", "cloudflared").Logger()
+func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
+	id := idFromConfigMap(cm)
+	log := cfc.Log().With().Str("id", id).Str("component", "cloudflared").Logger()
 	ri := &runningInstance{
 		tunnel:           t,
 		id:               id,
 		currentConfigMap: cm.DeepCopy(),
-		currentDir:       path.Join(cfc.Cfg().RunningInstanceDir, id.String()),
+		currentDir:       path.Join(cfc.Cfg().RunningInstanceDir, id),
 		log:              &log,
 	}
-
 	ri.unregisterShutdown = cfc.RegisterShutdown(func() {
 		ri.Stop(cfc)
 	})
-	err := os.MkdirAll(ri.currentDir, 0700)
+	stat, err := os.Stat(ri.currentDir)
+	if err == nil && stat.IsDir() {
+		log.Info().Msg("already running")
+		return nil, fmt.Errorf("already running")
+	}
+	err = os.MkdirAll(ri.currentDir, 0700)
 	if err != nil {
 		log.Error().Err(err).Msg("error creating runtime dir")
 		ri.Stop(cfc)

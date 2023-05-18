@@ -7,11 +7,16 @@ this is very much a work in progress
 - implemented in production to see if it is stable (On going)
 - helm chart (inkl rbac to control that configmap und secrets are writeable/readable)
 - add ingressClass support (untested)
-- add service support (done)
 - improve the documentation (on going)
 - add "more" tests (on going)
-- queue updates for configMap
 - restart logic for the cloudflared
+- switch watcher to use informer
+- runtime addressable name from sha256 of the configmap data
+- enable access-control
+
+- add service support (done)
+- queue updates for configMap (done)
+- state improvements (done)
 
 ## How to use
 Set the following environment variables

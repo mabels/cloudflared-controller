@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/instance: cloudflared-controller
+    app.kubernetes.io/name: cloudflared-controller
+  name: cloudflared-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloudflared-controller
+subjects:
+- kind: ServiceAccount
+  name: cloudflared-controller
+  namespace: default
