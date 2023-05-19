@@ -18,6 +18,7 @@ import (
 	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/mabels/cloudflared-controller/controller/k8s_data"
 	"github.com/mabels/cloudflared-controller/controller/types"
+	"github.com/mabels/cloudflared-controller/utils"
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
@@ -136,7 +137,8 @@ func (ri *runningInstance) Start(cfc types.CFController) error {
 	cmds := []string{cfdFname, "tunnel", "--no-autoupdate", "--config", ri.configfname, "run"}
 	ri.cmd = exec.Command(cfdFname, cmds[1:]...)
 
-	log = log.With().Strs("cmds", cmds).Logger()
+	log.Info().Strs("cmds", cmds).Msg("starting cloudflared")
+	// log = log.With().Strs("cmds", cmds).Logger()
 	stdErr, err := ri.cmd.StderrPipe()
 	if err != nil {
 		log.Error().Err(err).Msg("error getting stderr pipe")
@@ -159,7 +161,7 @@ func (ri *runningInstance) Start(cfc types.CFController) error {
 		fileScanner := bufio.NewScanner(pi)
 		fileScanner.Split(bufio.ScanLines)
 		for fileScanner.Scan() {
-			log.Debug().Msg(fileScanner.Text())
+			utils.TransfromSimpleZeroLogLine(fileScanner.Text(), &log)
 		}
 	}
 	go action(stdErr)

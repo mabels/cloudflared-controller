@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"time"
@@ -49,6 +50,7 @@ func watchedNamespaces(cfc types.CFController) (types.Watcher[*corev1.Namespace]
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	klog.SetOutput(utils.ConnectKlog2ZeroLog(&_log))
