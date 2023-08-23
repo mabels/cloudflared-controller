@@ -50,7 +50,7 @@ func watchedNamespaces(cfc types.CFController) (types.Watcher[*corev1.Namespace]
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	klog.SetOutput(utils.ConnectKlog2ZeroLog(&_log))

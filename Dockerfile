@@ -1,4 +1,4 @@
-FROM cloudflare/cloudflared:2023.5.0
+FROM cloudflare/cloudflared:2023.8.0
 #FROM alpine:latest
 
 #RUN ls -l

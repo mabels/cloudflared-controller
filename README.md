@@ -13,6 +13,7 @@ this is very much a work in progress
 - switch watcher to use informer
 - runtime addressable name from sha256 of the configmap data
 - enable access-control
+- move the state to status section and make it a log
 
 - add service support (done)
 - queue updates for configMap (done)
