@@ -39,7 +39,7 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	_schema, ok := annotations[config.AnnotationCloudflareTunnelSchema()]
 	var selectSchema *string
 	if ok {
-		selectPort = &_schema
+		selectSchema = &_schema
 	}
 
 	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
