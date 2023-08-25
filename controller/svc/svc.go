@@ -31,6 +31,12 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		return nil
 	}
 
+	_port, ok := annotations[config.AnnotationCloudflareTunnelPort()]
+	var selectPort *string
+	if ok {
+		selectPort = &_port
+	}
+
 	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
 	if err != nil {
 		cfc.Log().Error().Err(err).Msg("Failed to find tunnel param")
@@ -53,6 +59,10 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			cfc.Log().Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
 			continue
 		}
+		if selectPort != nil && port.Name != *selectPort {
+			continue
+		}
+
 		urlPort := fmt.Sprintf(":%d", port.Port)
 		schema := "http"
 		// if port.TargetPort.Type == intstr.Int {
