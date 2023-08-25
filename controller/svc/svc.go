@@ -36,6 +36,11 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	if ok {
 		selectPort = &_port
 	}
+	_schema, ok := annotations[config.AnnotationCloudflareTunnelSchema()]
+	var selectSchema *string
+	if ok {
+		selectPort = &_schema
+	}
 
 	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
 	if err != nil {
@@ -69,7 +74,9 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		// 	cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
 		// 	continue
 		// }
-		if port.TargetPort.Type == intstr.String {
+		if selectSchema != nil {
+			schema = *selectSchema
+		} else if port.TargetPort.Type == intstr.String {
 			switch port.TargetPort.StrVal {
 			case "http":
 			case "https":

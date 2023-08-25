@@ -84,6 +84,10 @@ func AnnotationCloudflareTunnelPort() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-port")
 }
 
+func AnnotationCloudflareTunnelSchema() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-schema")
+}
+
 // CloudflareTunnelAccountId    = "cloudflare.com/tunnel-account-id"
 // CloudflareTunnelZoneId       = "cloudflare.com/tunnel-zone-id"
 func AnnotationCloudflareTunnelK8sSecret() string {
