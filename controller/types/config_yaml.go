@@ -5,6 +5,7 @@ import (
 )
 
 type CFConfigOriginRequest struct {
+	NoTLSVerify    bool   `yaml:"noTLSVerify" json:"noTLSVerify"`
 	HttpHostHeader string `yaml:"httpHostHeader,omitempty"`
 }
 

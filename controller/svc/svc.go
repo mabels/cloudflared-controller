@@ -74,8 +74,13 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		// 	cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
 		// 	continue
 		// }
+		noTLSVerify := false
 		if selectSchema != nil {
 			schema = *selectSchema
+			if schema == "https-notlsverify" {
+				schema = "https"
+				noTLSVerify = true
+			}
 		} else if port.TargetPort.Type == intstr.String {
 			switch port.TargetPort.StrVal {
 			case "http":
@@ -95,6 +100,7 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			Service:  svcUrl,
 			OriginRequest: &types.CFConfigOriginRequest{
 				HttpHostHeader: svc.Name,
+				NoTLSVerify:    noTLSVerify,
 			},
 		}
 		cfcis = append(cfcis, cci)
