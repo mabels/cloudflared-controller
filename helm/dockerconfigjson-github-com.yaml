@@ -1,0 +1,10 @@
+kind: Secret
+type: kubernetes.io/dockerconfigjson
+apiVersion: v1
+metadata:
+  name: dockerconfigjson-github-com
+  labels:
+    app.kubernetes.io/instance: cloudflared-controller
+    app.kubernetes.io/name: cloudflared-controller
+data:
+  .dockerconfigjson: ------
