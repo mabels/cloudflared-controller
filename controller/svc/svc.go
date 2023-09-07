@@ -89,7 +89,7 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			default:
 			}
 		}
-		svcUrl := fmt.Sprintf("%s://%s%s", schema, svc.Name, urlPort)
+		svcUrl := fmt.Sprintf("%s://%s.%s%s", schema, svc.Name, svc.Namespace, urlPort)
 		mapping = append(mapping, types.CFEndpointMapping{
 			External: externalName,
 			Internal: svcUrl,
