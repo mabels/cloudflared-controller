@@ -52,15 +52,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Run GoReleaser DEV
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          version: latest
-          tags: dev
-          args: release --clean
-        env:
-          GORELEASER_CURRENT_TAG: dev
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+#      - name: Run GoReleaser DEV
+#        uses: goreleaser/goreleaser-action@v4
+#        with:
+#          version: latest
+#          tags: dev
+#          args: release --clean
+#        env:
+#          GORELEASER_CURRENT_TAG: dev
+#          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       # - name: Run GoReleaser Nightly
       #   uses: goreleaser/goreleaser-action@v4
