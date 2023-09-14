@@ -2,6 +2,7 @@ package svc
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/mabels/cloudflared-controller/controller/config"
@@ -15,6 +16,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 )
+
+type mappingCFEndpointMapping struct {
+	order int
+	cfem  types.CFEndpointMapping
+	cfci  types.CFConfigIngress
+}
 
 func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	cfc := _cfc.WithComponent("watchSvc", func(cfc types.CFController) {
@@ -38,7 +45,7 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	// schema is http, https, https-notlsverify
 	// path is the path to match
 	_mappings, ok := annotations[config.AnnotationCloudflareTunnelMapping()]
-	annotedMapping := []utils.AnnotationMapping{}
+	annotedMapping := []types.AnnotationMapping{}
 	if ok {
 		annotedMapping = utils.ParseMapping(cfc.Log(), _mappings)
 	}
@@ -69,15 +76,14 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	// if err != nil {
 	// 	return err
 	// }
-	cfcis := []types.CFConfigIngress{}
-	mapping := []types.CFEndpointMapping{}
+	mappings := []mappingCFEndpointMapping{}
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != corev1.ProtocolTCP {
 			cfc.Log().Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
 			continue
 		}
 
-		var selectedMapping *utils.AnnotationMapping
+		var selectedMapping *types.AnnotationMapping
 		if len(annotedMapping) > 0 {
 			for _, am := range annotedMapping {
 				if am.PortName == port.Name {
@@ -116,30 +122,51 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		}
 
 		svcUrl := fmt.Sprintf("%s://%s.%s%s", schema, svc.Name, svc.Namespace, urlPort)
-		mapping = append(mapping, types.CFEndpointMapping{
-			External: externalName,
-			Internal: svcUrl,
-		})
+		var order int
+		if selectedMapping != nil {
+			order = selectedMapping.Order
+		} else {
+			order = len(mappings) + len(annotedMapping)
+		}
 		path := "/"
 		if selectedMapping != nil {
 			path = selectedMapping.Path
 		}
-		cci := types.CFConfigIngress{
-			Hostname: externalName,
-			Path:     path,
-			Service:  svcUrl,
-			OriginRequest: &types.CFConfigOriginRequest{
-				HttpHostHeader: svc.Name,
-				NoTLSVerify:    noTLSVerify,
+		cci := mappingCFEndpointMapping{
+			order: order,
+			cfem: types.CFEndpointMapping{
+				Path:     path,
+				External: externalName,
+				Internal: svcUrl,
+			},
+			cfci: types.CFConfigIngress{
+				Hostname: externalName,
+				Path:     path,
+				Service:  svcUrl,
+				OriginRequest: &types.CFConfigOriginRequest{
+					HttpHostHeader: svc.Name,
+					NoTLSVerify:    noTLSVerify,
+				},
 			},
 		}
-		cfcis = append(cfcis, cci)
+		mappings = append(mappings, cci)
+	}
+	sort.Slice(mappings, func(i, j int) bool {
+		return mappings[i].order < mappings[j].order
+	})
+	cfcis := make([]types.CFConfigIngress, 0, len(mappings))
+	for _, m := range mappings {
+		cfcis = append(cfcis, m.cfci)
 	}
 	err = cfc.K8sData().TunnelConfigMaps.UpsertConfigMap(cfc, tparam, "service", &svc.ObjectMeta, cfcis)
 	if err != nil {
 		return err
 	}
-	cfc.Log().Info().Any("mapping", mapping).Msg("Wrote cloudflared config")
+	cfms := make([]types.CFEndpointMapping, 0, len(mappings))
+	for _, m := range mappings {
+		cfms = append(cfms, m.cfem)
+	}
+	cfc.Log().Info().Any("mapping", cfms).Msg("Wrote cloudflared config")
 	return nil
 }
 

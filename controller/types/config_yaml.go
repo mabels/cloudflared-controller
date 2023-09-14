@@ -29,6 +29,7 @@ type CFTunnelSecret struct {
 }
 
 type CFEndpointMapping struct {
+	Path     string
 	External string
 	Internal string
 }
