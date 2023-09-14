@@ -88,7 +88,6 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			for _, am := range annotedMapping {
 				if am.PortName == port.Name {
 					selectedMapping = append(selectedMapping, am)
-					break
 				}
 			}
 		}
