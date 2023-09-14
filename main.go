@@ -105,7 +105,7 @@ func main() {
 	// }
 	// cfc.K8sData.TunnelConfigMaps = k8s_data.NewTunnelConfigMaps()
 
-	cfc.Log().Info().Str("serverName", config.ServerName).Msg("Starting controller")
+	cfc.Log().Info().Str("serverName", config.ServerName).Str("version", Version).Msg("Starting controller")
 
 	if !cfc.Cfg().NoCloudFlared {
 		cfc.K8sData().TunnelConfigMaps = k8s_data.StartWaitForTunnelConfigMaps(cfc)

@@ -83,25 +83,17 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			continue
 		}
 
-		var selectedMapping *types.AnnotationMapping
+		selectedMapping := []types.AnnotationMapping{}
 		if len(annotedMapping) > 0 {
 			for _, am := range annotedMapping {
 				if am.PortName == port.Name {
-					selectedMapping = &am
+					selectedMapping = append(selectedMapping, am)
 					break
 				}
 			}
-			if selectedMapping == nil {
-				continue
-			}
 		}
-
-		urlPort := fmt.Sprintf(":%d", port.Port)
-		var schema string
-		if selectedMapping != nil {
-			schema = selectedMapping.Schema
-		} else {
-			schema = "http"
+		if len(selectedMapping) == 0 {
+			schema := "http"
 			if port.TargetPort.Type == intstr.String {
 				switch port.TargetPort.StrVal {
 				case "http":
@@ -114,42 +106,45 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 				cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
 				continue
 			}
-		}
-		noTLSVerify := false
-		if schema == "https-notlsverify" {
-			schema = "https"
-			noTLSVerify = true
+			selectedMapping = append(selectedMapping, types.AnnotationMapping{
+				Order:    len(mappings) + len(annotedMapping),
+				Schema:   schema,
+				Path:     "/",
+				PortName: port.Name,
+			})
 		}
 
-		svcUrl := fmt.Sprintf("%s://%s.%s%s", schema, svc.Name, svc.Namespace, urlPort)
-		var order int
-		if selectedMapping != nil {
-			order = selectedMapping.Order
-		} else {
-			order = len(mappings) + len(annotedMapping)
-		}
-		path := "/"
-		if selectedMapping != nil {
-			path = selectedMapping.Path
-		}
-		cci := mappingCFEndpointMapping{
-			order: order,
-			cfem: types.CFEndpointMapping{
-				Path:     path,
-				External: externalName,
-				Internal: svcUrl,
-			},
-			cfci: types.CFConfigIngress{
-				Hostname: externalName,
-				Path:     path,
-				Service:  svcUrl,
-				OriginRequest: &types.CFConfigOriginRequest{
-					HttpHostHeader: svc.Name,
-					NoTLSVerify:    noTLSVerify,
+		urlPort := fmt.Sprintf(":%d", port.Port)
+		for _, sm := range selectedMapping {
+			schema := sm.Schema
+
+			noTLSVerify := false
+			if schema == "https-notlsverify" {
+				schema = "https"
+				noTLSVerify = true
+			}
+
+			svcUrl := fmt.Sprintf("%s://%s.%s%s", schema, svc.Name, svc.Namespace, urlPort)
+			path := sm.Path
+			cci := mappingCFEndpointMapping{
+				order: sm.Order,
+				cfem: types.CFEndpointMapping{
+					Path:     path,
+					External: externalName,
+					Internal: svcUrl,
 				},
-			},
+				cfci: types.CFConfigIngress{
+					Hostname: externalName,
+					Path:     path,
+					Service:  svcUrl,
+					OriginRequest: &types.CFConfigOriginRequest{
+						HttpHostHeader: svc.Name,
+						NoTLSVerify:    noTLSVerify,
+					},
+				},
+			}
+			mappings = append(mappings, cci)
 		}
-		mappings = append(mappings, cci)
 	}
 	sort.Slice(mappings, func(i, j int) bool {
 		return mappings[i].order < mappings[j].order

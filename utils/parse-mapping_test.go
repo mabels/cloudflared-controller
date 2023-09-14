@@ -68,9 +68,33 @@ func TestParseMappingPortSchema(t *testing.T) {
 	})
 }
 
+func TestParseMappingNextJS(t *testing.T) {
+	log := zerolog.New(os.Stdout).With().Logger()
+	mapping := ParseMapping(&log, "public/http|^\\/(assets|favicon|fonts|logo)\\/,public/http|^\\/manifest.json$,next/http/")
+	assert.Equal(t, mapping, []types.AnnotationMapping{
+		{
+			PortName: "public",
+			Schema:   "http",
+			Path:     "^\\/(assets|favicon|fonts|logo)\\/",
+			Order:    0,
+		},
+		{
+			PortName: "public",
+			Schema:   "http",
+			Path:     "^\\/manifest.json$",
+			Order:    1,
+		},
+		{
+			PortName: "next",
+			Schema:   "http",
+			Path:     "/",
+			Order:    2,
+		},
+	})
+}
+
 func TestParseMappingPortSchemaPath(t *testing.T) {
 	log := zerolog.New(os.Stdout).With().Logger()
-
 	mapping := ParseMapping(&log, "hallo/http/////")
 	assert.Equal(t, mapping, []types.AnnotationMapping{
 		{
