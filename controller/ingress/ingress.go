@@ -137,10 +137,10 @@ func stackedIngress(_cfc types.CFController, ev watch.Event, ingress *netv1.Ingr
 				}
 			}
 		}
-		_port, ok := annotations[config.AnnotationCloudflareTunnelPort()]
-		if ok {
-			port = ":" + _port
-		}
+		// _port, ok := annotations[config.AnnotationCloudflareTunnelPort()]
+		// if ok {
+		// 	port = ":" + _port
+		// }
 		for _, path := range rule.HTTP.Paths {
 			svcUrl := fmt.Sprintf("%s://%s%s", schema, rule.Host, port)
 			mapping = append(mapping, types.CFEndpointMapping{

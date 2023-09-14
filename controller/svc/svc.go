@@ -9,6 +9,7 @@ import (
 	"github.com/mabels/cloudflared-controller/controller/namespaces"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/mabels/cloudflared-controller/controller/watcher"
+	"github.com/mabels/cloudflared-controller/utils"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -31,16 +32,27 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		return nil
 	}
 
-	_port, ok := annotations[config.AnnotationCloudflareTunnelPort()]
-	var selectPort *string
+	// Mapping
+	// name/schema/path
+	// name is name of the port
+	// schema is http, https, https-notlsverify
+	// path is the path to match
+	_mappings, ok := annotations[config.AnnotationCloudflareTunnelMapping()]
+	annotedMapping := []utils.AnnotationMapping{}
 	if ok {
-		selectPort = &_port
+		annotedMapping = utils.ParseMapping(cfc.Log(), _mappings)
 	}
-	_schema, ok := annotations[config.AnnotationCloudflareTunnelSchema()]
-	var selectSchema *string
-	if ok {
-		selectSchema = &_schema
-	}
+
+	// _port, ok := annotations[config.AnnotationCloudflareTunnelPort()]
+	// var selectPort *string
+	// if ok {
+	// 	selectPort = &_port
+	// }
+	// _schema, ok := annotations[config.AnnotationCloudflareTunnelSchema()]
+	// var selectSchema *string
+	// if ok {
+	// 	selectSchema = &_schema
+	// }
 
 	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
 	if err != nil {
@@ -64,39 +76,57 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			cfc.Log().Warn().Str("port", port.Name).Msg("Skipping non-TCP port")
 			continue
 		}
-		if selectPort != nil && port.Name != *selectPort {
-			continue
+
+		var selectedMapping *utils.AnnotationMapping
+		if len(annotedMapping) > 0 {
+			for _, am := range annotedMapping {
+				if am.PortName == port.Name {
+					selectedMapping = &am
+					break
+				}
+			}
+			if selectedMapping == nil {
+				continue
+			}
 		}
 
 		urlPort := fmt.Sprintf(":%d", port.Port)
-		schema := "http"
-		// if port.TargetPort.Type == intstr.Int {
-		// 	cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
-		// 	continue
-		// }
-		noTLSVerify := false
-		if selectSchema != nil {
-			schema = *selectSchema
-			if schema == "https-notlsverify" {
-				schema = "https"
-				noTLSVerify = true
+		var schema string
+		if selectedMapping != nil {
+			schema = selectedMapping.Schema
+		} else {
+			schema = "http"
+			if port.TargetPort.Type == intstr.String {
+				switch port.TargetPort.StrVal {
+				case "http":
+				case "https":
+					schema = "https"
+				default:
+				}
 			}
-		} else if port.TargetPort.Type == intstr.String {
-			switch port.TargetPort.StrVal {
-			case "http":
-			case "https":
-				schema = "https"
-			default:
+			if port.TargetPort.Type == intstr.Int {
+				cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
+				continue
 			}
 		}
+		noTLSVerify := false
+		if schema == "https-notlsverify" {
+			schema = "https"
+			noTLSVerify = true
+		}
+
 		svcUrl := fmt.Sprintf("%s://%s.%s%s", schema, svc.Name, svc.Namespace, urlPort)
 		mapping = append(mapping, types.CFEndpointMapping{
 			External: externalName,
 			Internal: svcUrl,
 		})
+		path := "/"
+		if selectedMapping != nil {
+			path = selectedMapping.Path
+		}
 		cci := types.CFConfigIngress{
 			Hostname: externalName,
-			Path:     "/",
+			Path:     path,
 			Service:  svcUrl,
 			OriginRequest: &types.CFConfigOriginRequest{
 				HttpHostHeader: svc.Name,
