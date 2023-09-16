@@ -2,6 +2,14 @@ package types
 
 import "time"
 
+type CFControllerCloudflareConfig struct {
+	ApiUrl                   string
+	ApiToken                 string
+	AccountId                string
+	TunnelConfigMapNamespace string
+	// ZoneId    string
+}
+
 type CFControllerConfig struct {
 	KubeConfigFile         string
 	PresetNamespaces       []string
@@ -16,14 +24,8 @@ type CFControllerConfig struct {
 	ClusterName            string
 	RestartDelay           time.Duration
 	ConfigMapLabelSelector string
-	CloudFlare             struct {
-		ApiUrl                   string
-		ApiToken                 string
-		AccountId                string
-		TunnelConfigMapNamespace string
-		// ZoneId    string
-	}
-	Leader struct {
+	CloudFlare             CFControllerCloudflareConfig
+	Leader                 struct {
 		Name          string
 		Namespace     string
 		LeaseDuration time.Duration

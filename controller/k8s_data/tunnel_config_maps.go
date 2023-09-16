@@ -69,7 +69,6 @@ func cmKey(kind, ns, name string) string {
 }
 
 func UpsertConfigMap(cfc types.CFController, tparam *types.CFTunnelParameter, cm *corev1.ConfigMap) error {
-
 	client := cfc.Rest().K8s().CoreV1().ConfigMaps(tparam.K8SConfigMapName().Namespace)
 	toUpdate, err := client.Get(cfc.Context(), tparam.K8SConfigMapName().Name, metav1.GetOptions{})
 	if err != nil {

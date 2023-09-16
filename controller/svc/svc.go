@@ -23,6 +23,70 @@ type mappingCFEndpointMapping struct {
 	cfci  types.CFConfigIngress
 }
 
+func prefereHttps(ports []corev1.ServicePort, isHttps func(port corev1.ServicePort) bool) []types.SvcAnnotationMapping {
+	if len(ports) == 0 {
+		return []types.SvcAnnotationMapping{}
+	}
+	for _, port := range ports {
+		if isHttps(port) {
+			return []types.SvcAnnotationMapping{
+				{
+					PortName: port.Name,
+					Schema:   "https",
+					Path:     "/",
+					Order:    0,
+				}}
+		}
+	}
+	port := ports[0]
+	return []types.SvcAnnotationMapping{{
+		PortName: port.Name,
+		Schema:   "http",
+		Path:     "/",
+		Order:    0,
+	}}
+}
+
+func mappingFromPorts(ports []corev1.ServicePort) []types.SvcAnnotationMapping {
+
+	searchByPortName := []corev1.ServicePort{}
+	searchByPortTypeString := []corev1.ServicePort{}
+	searchByPortTypeInt := []corev1.ServicePort{}
+	for _, port := range ports {
+		// search portname http or https
+		if port.Name == "http" || port.Name == "https" {
+			searchByPortName = append(searchByPortName, port)
+			continue
+		}
+		if port.TargetPort.Type == intstr.String {
+			if port.TargetPort.StrVal == "http" || port.TargetPort.StrVal == "https" {
+				searchByPortTypeString = append(searchByPortTypeString, port)
+				continue
+			}
+		}
+		if port.TargetPort.Type == intstr.Int {
+			if port.TargetPort.IntVal == 80 || port.TargetPort.IntVal == 443 {
+				searchByPortTypeInt = append(searchByPortTypeInt, port)
+				continue
+			}
+		}
+	}
+	if len(searchByPortName) > 0 {
+		return prefereHttps(searchByPortName, func(port corev1.ServicePort) bool {
+			return port.Name == "https"
+		})
+	} else if len(searchByPortTypeString) > 0 {
+		return prefereHttps(searchByPortTypeString, func(port corev1.ServicePort) bool {
+			return port.TargetPort.StrVal == "https"
+		})
+	} else if len(searchByPortTypeInt) > 0 {
+		return prefereHttps(searchByPortTypeInt, func(port corev1.ServicePort) bool {
+			return port.TargetPort.IntVal == 443
+		})
+	}
+	return []types.SvcAnnotationMapping{}
+}
+
 func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 	cfc := _cfc.WithComponent("watchSvc", func(cfc types.CFController) {
 		log := cfc.Log().With().Str("svc", svc.Name).Logger()
@@ -39,43 +103,24 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 		return nil
 	}
 
+	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
+	if err != nil {
+		cfc.Log().Error().Err(err).Msg("Failed to find tunnel param")
+		return err
+	}
 	// Mapping
 	// name/schema/path
 	// name is name of the port
 	// schema is http, https, https-notlsverify
 	// path is the path to match
 	_mappings, ok := annotations[config.AnnotationCloudflareTunnelMapping()]
-	annotedMapping := []types.AnnotationMapping{}
+	annotedMapping := []types.SvcAnnotationMapping{}
 	if ok {
-		annotedMapping = utils.ParseMapping(cfc.Log(), _mappings)
+		annotedMapping = utils.ParseSvcMapping(cfc.Log(), _mappings)
 	}
-
-	// _port, ok := annotations[config.AnnotationCloudflareTunnelPort()]
-	// var selectPort *string
-	// if ok {
-	// 	selectPort = &_port
-	// }
-	// _schema, ok := annotations[config.AnnotationCloudflareTunnelSchema()]
-	// var selectSchema *string
-	// if ok {
-	// 	selectSchema = &_schema
-	// }
-
-	tparam, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &svc.ObjectMeta)
-	if err != nil {
-		cfc.Log().Error().Err(err).Msg("Failed to find tunnel param")
-		return err
+	if len(annotedMapping) == 0 {
+		annotedMapping = mappingFromPorts(svc.Spec.Ports)
 	}
-
-	// tp, err := cloudflared.PrepareTunnel(cfc, &svc.ObjectMeta)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = cloudflared.RegisterCFDnsEndpoint(cfc, tp.ID, externalName)
-	// if err != nil {
-	// 	return err
-	// }
 	mappings := []mappingCFEndpointMapping{}
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != corev1.ProtocolTCP {
@@ -83,40 +128,16 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			continue
 		}
 
-		selectedMapping := []types.AnnotationMapping{}
-		if len(annotedMapping) > 0 {
-			for _, am := range annotedMapping {
-				if am.PortName == port.Name {
-					selectedMapping = append(selectedMapping, am)
-				}
+		selectedMapping := []types.SvcAnnotationMapping{}
+		for _, am := range annotedMapping {
+			if am.PortName == port.Name {
+				selectedMapping = append(selectedMapping, am)
 			}
-		}
-		if len(selectedMapping) == 0 {
-			schema := "http"
-			if port.TargetPort.Type == intstr.String {
-				switch port.TargetPort.StrVal {
-				case "http":
-				case "https":
-					schema = "https"
-				default:
-				}
-			}
-			if port.TargetPort.Type == intstr.Int {
-				cfc.Log().Warn().Int32("TargetPort", port.TargetPort.IntVal).Msg("Skipping non-http(s) port")
-				continue
-			}
-			selectedMapping = append(selectedMapping, types.AnnotationMapping{
-				Order:    len(mappings) + len(annotedMapping),
-				Schema:   schema,
-				Path:     "/",
-				PortName: port.Name,
-			})
 		}
 
 		urlPort := fmt.Sprintf(":%d", port.Port)
 		for _, sm := range selectedMapping {
 			schema := sm.Schema
-
 			noTLSVerify := false
 			if schema == "https-notlsverify" {
 				schema = "https"
@@ -144,6 +165,9 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 			}
 			mappings = append(mappings, cci)
 		}
+	}
+	if len(mappings) == 0 {
+		return nil
 	}
 	sort.Slice(mappings, func(i, j int) bool {
 		return mappings[i].order < mappings[j].order
