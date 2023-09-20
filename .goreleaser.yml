@@ -48,7 +48,7 @@ changelog:
 
 # .goreleaser.yaml
 dockers:
-- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64"]
+- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-amd64"]
   use: buildx
   dockerfile: Dockerfile
   goarch: amd64
@@ -64,7 +64,7 @@ dockers:
   - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - --label=org.opencontainers.image.licenses=APL2
 
-- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-arm64v8"]
   dockerfile: Dockerfile
   use: buildx
   goarch: arm64
@@ -83,13 +83,11 @@ dockers:
 docker_manifests:
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}
   image_templates:
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
-    #  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-amd64
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-arm64v8
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:latest
   image_templates:
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
-    #  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-armv7
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-amd64
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-arm64v8
 
 
