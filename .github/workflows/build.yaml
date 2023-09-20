@@ -70,7 +70,7 @@ jobs:
         with:
           registry: ghcr.io
           repository: mabels/cloudflared-controller
-          tag: {{ env.TAG }}-cfd{{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+          tag: ${{ env.TAG }}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
       - name: Run GoReleaser RELEASE
         uses: goreleaser/goreleaser-action@v4
