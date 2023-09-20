@@ -66,16 +66,21 @@ jobs:
 
       - name: Check image
         run: |
-          if docker manifest inspect  ghcr.io/mabels/cloudflared-controller:${{ env.DOCKER_VERSION }}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+          if [[ ${{github.ref}} == "v*" ]]
           then
-            echo "FOUND"
+            if docker manifest inspect  ghcr.io/mabels/cloudflared-controller:${{ env.DOCKER_VERSION }}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+            then
+              echo "IS_RELEASE=false" | tee -a $GITHUB_ENV
+            else
+              echo "IS_RELEASE=true" | tee -a $GITHUB_ENV
+            fi
           else
-            echo "NOT-FOUND"
+            echo "IS_RELEASE=false" | tee -a $GITHUB_ENV
           fi
 
       - name: Run GoReleaser RELEASE
         uses: goreleaser/goreleaser-action@v4
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.IS_RELEASE == 'true' }}
         with:
           version: latest
           args: release --clean
@@ -83,23 +88,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
-#      - name: Run GoReleaser DEV
-#        uses: goreleaser/goreleaser-action@v4
-#        with:
-#          version: latest
-#          tags: dev
-#          args: release --clean
-#        env:
-#          GORELEASER_CURRENT_TAG: dev
-#          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-#           CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
-
-      # - name: Run GoReleaser Nightly
-      #   uses: goreleaser/goreleaser-action@v4
-      #   if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      #   with:
-      #     version: latest
-      #     args: release --clean --nightly
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
