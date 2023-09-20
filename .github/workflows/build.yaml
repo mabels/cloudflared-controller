@@ -50,6 +50,7 @@ jobs:
       - name: Get Latest Cloudflared Version
         run: |
           node .github/workflows/query_versions.js cloudflare/cloudflared | tee -a $GITHUB_ENV
+          echo "TAG=$(echo ${{ secrets.GH_TOKEN }} | sed s/.*v/v/)" | tee -a $GITHUB_ENV
 
       - name: Set up Docker Buildx
         if: startsWith(github.ref, 'refs/tags/v')
@@ -62,6 +63,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GH_TOKEN }}
+
+      - name: Check image
+        id: image_exists
+        uses: cloudposse/github-action-docker-image-exists@main
+        with:
+          registry: ghcr.io
+          repository: mabels/cloudflared-controller
+          tag: {{ env.TAG }}-cfd{{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
       - name: Run GoReleaser RELEASE
         uses: goreleaser/goreleaser-action@v4

@@ -1,3 +1,5 @@
+env:
+  - CFD_VERSION={{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 before:
   hooks:
     - go mod download
@@ -48,13 +50,13 @@ changelog:
 
 # .goreleaser.yaml
 dockers:
-- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-amd64"]
+- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}-amd64"]
   use: buildx
   dockerfile: Dockerfile
   goarch: amd64
   build_flag_templates:
   - --platform=linux/amd64
-  - --build-arg CLOUDFLARE_CLOUDFLARED_VERSION={{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+  - --build-arg CLOUDFLARE_CLOUDFLARED_VERSION={{ .CFD_VERSION }}
   - --label=org.opencontainers.image.title={{ .ProjectName }}
   - --label=org.opencontainers.image.description={{ .ProjectName }}
   - --label=org.opencontainers.image.url=https://github.com/mabels/{{ .ProjectName }}
@@ -64,13 +66,13 @@ dockers:
   - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - --label=org.opencontainers.image.licenses=APL2
 
-- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-arm64v8"]
+- image_templates: ["ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}-arm64v8"]
   dockerfile: Dockerfile
   use: buildx
   goarch: arm64
   build_flag_templates:
   - --platform=linux/arm64/v8
-  - --build-arg CLOUDFLARE_CLOUDFLARED_VERSION={{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+  - --build-arg CLOUDFLARE_CLOUDFLARED_VERSION={{ .CFD_VERSION }}
   - --label=org.opencontainers.image.title={{ .ProjectName }}
   - --label=org.opencontainers.image.description={{ .ProjectName }}
   - --label=org.opencontainers.image.url=https://github.com/mabels/{{ .ProjectName }}
@@ -81,13 +83,13 @@ dockers:
   - --label=org.opencontainers.image.licenses=APL2
 
 docker_manifests:
-- name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}
+- name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}
   image_templates:
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-amd64
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-arm64v8
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}-amd64
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}-arm64v8
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:latest
   image_templates:
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-amd64
-  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .Env.CLOUDFLARE_CLOUDFLARED_VERSION }}-arm64v8
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}-amd64
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-cfd{{ .CFD_VERSION }}-arm64v8
 
 
