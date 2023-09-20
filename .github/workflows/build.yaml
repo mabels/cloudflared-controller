@@ -72,8 +72,10 @@ jobs:
         run: |
           if docker manifest inspect  ghcr.io/mabels/cloudflared-controller:${{ env.CONTROLLER_VERSION }}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
           then
-            echo "RELEASE_VERSION=dev" | tee -a $GITHUB_ENV
-            echo "BUILD_VERSION=refs/tags/d$(git rev-parse --short HEAD)" | tee -a $GITHUB_ENV
+            if [ "${{ env.CONTROLLER_VERSION }}" == "" ]
+              echo "RELEASE_VERSION=dev" | tee -a $GITHUB_ENV
+              echo "BUILD_VERSION=refs/tags/d$(git rev-parse --short HEAD)" | tee -a $GITHUB_ENV
+            fi
           else
             echo "RELEASE_VERSION=latest"
             echo "BUILD_VERSION=refs/tags/v${{ env.CONTROLLER_VERSION }}" | tee -a $GITHUB_ENV
