@@ -27,6 +27,11 @@ jobs:
         #if: ${{ github.event_name == 'schedule' }}
         with:
           prefix: v
+
+      - uses: actions/checkout@v3
+        #if: ${{ github.event_name == 'schedule' }}
+        with:
+          ref: ${{ steps.currentTag.outputs.tag }}
      
       - name: Set up Go
         uses: actions/setup-go@v3
