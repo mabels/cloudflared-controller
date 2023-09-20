@@ -69,7 +69,8 @@ jobs:
         uses: cloudposse/github-action-docker-image-exists@main
         with:
           registry: ghcr.io
-          repository: mabels/cloudflared-controller
+          organization: mabels
+          repository: cloudflared-controller
           tag: ${{ env.TAG }}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
       - name: Run GoReleaser RELEASE
