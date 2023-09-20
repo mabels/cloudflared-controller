@@ -17,6 +17,10 @@ jobs:
 
     name: Build ${{ join(matrix.platform, ',') }} cloudflared-controller
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: 'Get Current tag'
         id: currentTag
         uses: "WyriHaximus/github-action-get-previous-tag@v1"
@@ -24,10 +28,6 @@ jobs:
         with:
           prefix: v
      
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
