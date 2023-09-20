@@ -81,7 +81,7 @@ jobs:
             fi
           else
             echo "RELEASE_VERSION=latest"
-            echo "BUILD_VERSION=refs/tags/v${{ env.CONTROLLER_VERSION }}" | tee -a $GITHUB_ENV
+            echo "BUILD_VERSION=refs/tags/v${{ env.CONTROLLER_VERSION }}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}" | tee -a $GITHUB_ENV
           fi
 
       - name: Run GoReleaser RELEASE
