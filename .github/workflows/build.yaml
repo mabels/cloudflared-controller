@@ -20,7 +20,7 @@ jobs:
       - name: 'Get Current tag'
         id: currentTag
         uses: "WyriHaximus/github-action-get-previous-tag@v1"
-        if: ${{ github.event_name == 'schedule' }}
+        #if: ${{ github.event_name == 'schedule' }}
         with:
           prefix: v
      
@@ -42,11 +42,9 @@ jobs:
       - name: Test
         run: go test -v ./...
 
-      - name Get Cloudflared Version
+      - name: Get Latest Cloudflared Version
         run: |
-          node .github/workflows/query_versions.js cloudflare/cloudflared >> "$GITHUB_ENV"
-
-
+          node .github/workflows/query_versions.js cloudflare/cloudflared | tee -a $GITHUB_ENV
 
       - name: Set up Docker Buildx
         if: startsWith(github.ref, 'refs/tags/v')
@@ -79,7 +77,7 @@ jobs:
 #        env:
 #          GORELEASER_CURRENT_TAG: dev
 #          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-           CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+#           CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
       # - name: Run GoReleaser Nightly
       #   uses: goreleaser/goreleaser-action@v4
