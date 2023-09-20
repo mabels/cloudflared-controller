@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
 
+  schedule:
+    - cron: "3 3 * * 6"
+
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
@@ -14,7 +17,16 @@ jobs:
 
     name: Build ${{ join(matrix.platform, ',') }} cloudflared-controller
     steps:
+      - name: 'Get Current tag'
+        id: currentTag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        if: ${{ github.event_name == 'schedule' }}
+        with:
+          prefix: v
+     
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -29,6 +41,11 @@ jobs:
 
       - name: Test
         run: go test -v ./...
+
+      - name Get Cloudflared Version
+        run: |
+          node .github/workflows/query_versions.js cloudflare/cloudflared >> "$GITHUB_ENV"
+
 
 
       - name: Set up Docker Buildx
@@ -51,6 +68,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
 #      - name: Run GoReleaser DEV
 #        uses: goreleaser/goreleaser-action@v4
@@ -61,6 +79,7 @@ jobs:
 #        env:
 #          GORELEASER_CURRENT_TAG: dev
 #          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+           CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
       # - name: Run GoReleaser Nightly
       #   uses: goreleaser/goreleaser-action@v4

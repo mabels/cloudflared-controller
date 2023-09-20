@@ -1,4 +1,5 @@
-FROM cloudflare/cloudflared:2023.8.0
+ARG  CLOUDFLARE_CLOUDFLARED_VERSION=latest
+FROM cloudflare/cloudflared:${CLOUDFLARE_CLOUDFLARED_VERSION}
 #FROM alpine:latest
 
 #RUN ls -l

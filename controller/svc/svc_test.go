@@ -464,3 +464,50 @@ func TestUnknownUpdateConfigMap(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, cf.tunnelConfigMaps.upsertCalls, 0)
 }
+
+func TestSimpleSVC(t *testing.T) {
+	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	cf := &mockController{
+		log: &_log,
+		cfg: &types.CFControllerConfig{
+			CloudFlare: types.CFControllerCloudflareConfig{
+				TunnelConfigMapNamespace: "what",
+			},
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "what-tech",
+			Namespace: "what",
+			Annotations: map[string]string{
+				"cloudflare.com/tunnel-external-name": "cft.what.tech",
+				"cloudflare.com/tunnel-name":          "what.tech",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       5061,
+					Protocol:   "TCP",
+					TargetPort: intstr.FromInt(5051),
+				},
+			},
+		},
+	}
+	err := updateConfigMap(cf, svc)
+	assert.NoError(t, err)
+	assert.Len(t, cf.tunnelConfigMaps.upsertCalls, 1)
+	assert.Equal(t, "what.tech", cf.tunnelConfigMaps.upsertCalls[0].tparam.Name)
+
+	assert.Equal(t, []types.CFConfigIngress{
+		{
+			Hostname: "cft.what.tech",
+			Path:     "/",
+			Service:  "http://what-tech.what:5061",
+			OriginRequest: &types.CFConfigOriginRequest{
+				NoTLSVerify:    false,
+				HttpHostHeader: "what-tech",
+			},
+		}}, cf.tunnelConfigMaps.upsertCalls[0].cfcis)
+}
