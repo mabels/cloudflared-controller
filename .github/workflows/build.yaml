@@ -67,7 +67,7 @@ jobs:
           then
             CTRL_VERSION=refs/tags/v${{ env.CONTROLLER_VERSION }} 
           else
-            CTRL_VERSION=refs/tags/d$(git rev-parse --short HEAD)"   
+            CTRL_VERSION=refs/tags/d$(git rev-parse --short HEAD)
           fi
           if docker manifest inspect ghcr.io/mabels/cloudflared-controller:${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
           then
