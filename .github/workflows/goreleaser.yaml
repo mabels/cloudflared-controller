@@ -16,6 +16,20 @@ jobs:
     name: Build ${{ join(matrix.platform, ',') }} cloudflared-controller
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 'Get Current tag'
+        id: currentTag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        #if: ${{ github.event_name == 'schedule' }}
+        with:
+          prefix: v
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.currentTag.outputs.tag }}
+
 
       - name: CFD_VERSION
         run: echo "CFD_VERSION=$(echo ${{ github.ref }} | sed 's/.*cfd//') | tee -a $GITHUB_ENV

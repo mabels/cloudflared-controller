@@ -4,9 +4,6 @@ on:
   pull_request:
   push:
 
-  schedule:
-    - cron: "3 3 * * 6"
-
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
@@ -21,18 +18,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 'Get Current tag'
-        id: currentTag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
-        #if: ${{ github.event_name == 'schedule' }}
-        with:
-          prefix: v
-
-      - uses: actions/checkout@v3
-        #if: ${{ github.event_name == 'schedule' }}
-        with:
-          ref: ${{ steps.currentTag.outputs.tag }}
-     
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -61,6 +46,18 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GH_TOKEN }}
 
+      - name: 'Get Current tag'
+        id: currentTag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        with:
+          prefix: v
+
+      - name: 'Get next minor version'
+        id: semvers
+        uses: "WyriHaximus/github-action-next-semvers@v1"
+        with:
+          version: ${{ steps.currentTag.outputs.tag }}
+
       - name: Check image
         run: |
           if [[ ${{ github.ref }} == refs/tags/v* ]]
@@ -68,7 +65,12 @@ jobs:
             CTRL_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/||'
             env | grep GITHUB
           else
-            CTRL_VERSION=d$(git rev-parse --short HEAD)
+            if [[ ${{ github.event_name }} == schedule ]]
+            then
+               CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
+            else
+               CTRL_VERSION=v${{ steps.semvers.outputs.patch }}-pre$(git rev-parse --short HEAD)
+            fi
           fi
           if docker manifest inspect ghcr.io/mabels/cloudflared-controller:${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
           then
