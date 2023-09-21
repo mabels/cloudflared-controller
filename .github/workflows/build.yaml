@@ -74,20 +74,15 @@ jobs:
             echo "SKIP-RELEASE"
           else
             echo "RELEASE_VERSION=latest"
-            echo "BUILD_VERSION=refs/tags/${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}" | tee -a $GITHUB_ENV
-            git tag ${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
-            git push --tags
+            echo "BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}" | tee -a $GITHUB_ENV
+            #git tag ${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
           fi
 
-#      - name: Run GoReleaser RELEASE
-#        if: ${{ env.BUILD_VERSION != '' }}
-#        uses: goreleaser/goreleaser-action@v4
-#        with:
-#          version: ${{ env.RELEASE_VERSION }}
-#          args: release --clean
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-#          GITHUB_REF: ${{ env.BUILD_VERSION }}
-#          CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
-
+      - name: Commit changes
+        if: ${{ env.RELEASE_VERSION == latest }}
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: Build Version
+          author_email: pipeline@adviser.com
+          tag: ${{ env.BUILD_VERSION }}
 
