@@ -1,0 +1,30 @@
+name: gorelease-build
+
+on:
+  push:
+    tags:
+      - 'v.*cfd.*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        include:
+          - platform: ubuntu-latest
+
+    name: Build ${{ join(matrix.platform, ',') }} cloudflared-controller
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: CFD_VERSION
+        run: echo "CFD_VERSION=$(echo ${{ github.ref }} | sed 's/.*cfd//') | tee -a $GITHUB_ENV
+      
+      - name: Run GoReleaser RELEASE
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+

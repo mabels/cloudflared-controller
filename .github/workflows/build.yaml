@@ -65,7 +65,8 @@ jobs:
         run: |
           if [[ ${{ github.ref }} == refs/tags/v* ]]
           then
-            CTRL_VERSION=v${{ env.CONTROLLER_VERSION }} 
+            CTRL_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/||'
+            env | grep GITHUB
           else
             CTRL_VERSION=d$(git rev-parse --short HEAD)
           fi
@@ -76,17 +77,18 @@ jobs:
             echo "RELEASE_VERSION=latest"
             echo "BUILD_VERSION=refs/tags/${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}" | tee -a $GITHUB_ENV
             git tag ${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+            git push --tags
           fi
 
-      - name: Run GoReleaser RELEASE
-        if: ${{ env.BUILD_VERSION != '' }}
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          version: ${{ env.RELEASE_VERSION }}
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          GITHUB_REF: ${{ env.BUILD_VERSION }}
-          CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+#      - name: Run GoReleaser RELEASE
+#        if: ${{ env.BUILD_VERSION != '' }}
+#        uses: goreleaser/goreleaser-action@v4
+#        with:
+#          version: ${{ env.RELEASE_VERSION }}
+#          args: release --clean
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+#          GITHUB_REF: ${{ env.BUILD_VERSION }}
+#          CLOUDFLARE_CLOUDFLARED_VERSION: ${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
 
 
