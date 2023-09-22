@@ -73,16 +73,32 @@ jobs:
           then
             echo "SKIP-RELEASE"
           else
-            echo "RELEASE_VERSION=latest"
-            echo "BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}" | tee -a $GITHUB_ENV
-            #git tag ${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+            echo "PUSH_TAG=needed" | tee -a $GITHUB_ENV
+            BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+            echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
+            git tag $BUILD_VERSION
+            env 
           fi
 
-      - name: Commit changes
-        if: ${{ env.RELEASE_VERSION == 'latest' }}
-        uses: EndBug/add-and-commit@v9
+          #      - name: Push Tag ${{ env.BUILD_VERSION }}
+          #if: ${{ env.PUSH_TAG == 'needed' }}
+          #uses: EndBug/add-and-commit@v9
+          #with:
+          #author_name: Build Version
+          #author_email: pipeline@adviser.com
+          #tag: ${{ env.BUILD_VERSION }}
+
+
+      - name: Set up Docker Buildx
+        if: ${{ env.PUSH_TAG == 'needed' }}
+        uses: docker/setup-buildx-action@v2
+
+      - name: Run GoReleaser RELEASE
+        if: ${{ env.PUSH_TAG == 'needed' }}
+        uses: goreleaser/goreleaser-action@v4
         with:
-          author_name: Build Version
-          author_email: pipeline@adviser.com
-          tag: ${{ env.BUILD_VERSION }}
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
