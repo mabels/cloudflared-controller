@@ -61,22 +61,25 @@ jobs:
           then
             CTRL_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/||')
             echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
+            echo PRERELEASE=false | tee -a $GITHUB_ENV
           else
             if [[ ${{ github.event_name }} == schedule ]]
             then
                CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
                echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
+               echo PRERELEASE=false | tee -a $GITHUB_ENV
             else
                CTRL_VERSION=v${{ steps.semvers.outputs.patch }}-pre$(git rev-parse --short HEAD)
+               echo PRERELEASE=true | tee -a $GITHUB_ENV
                echo RELEASE_TAG=dev | tee -a $GITHUB_ENV
             fi
           fi
-          if docker manifest inspect ghcr.io/mabels/cloudflared-controller:${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+          BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+          if docker manifest inspect ghcr.io/mabels/cloudflared-controller:$BUILD_VERSION
           then
             echo "SKIP-RELEASE"
           else
             echo "PUSH_TAG=needed" | tee -a $GITHUB_ENV
-            BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
             echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
             git tag $BUILD_VERSION
           fi
