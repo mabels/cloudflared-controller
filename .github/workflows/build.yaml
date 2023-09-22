@@ -60,13 +60,15 @@ jobs:
           if [[ ${{ github.ref }} == refs/tags/v* ]]
           then
             CTRL_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/||')
-            env | grep GITHUB
+            echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
           else
             if [[ ${{ github.event_name }} == schedule ]]
             then
                CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
+               echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
             else
                CTRL_VERSION=v${{ steps.semvers.outputs.patch }}-pre$(git rev-parse --short HEAD)
+               echo RELEASE_TAG=dev | tee -a $GITHUB_ENV
             fi
           fi
           if docker manifest inspect ghcr.io/mabels/cloudflared-controller:${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
@@ -77,17 +79,7 @@ jobs:
             BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
             echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
             git tag $BUILD_VERSION
-            env 
           fi
-
-          #      - name: Push Tag ${{ env.BUILD_VERSION }}
-          #if: ${{ env.PUSH_TAG == 'needed' }}
-          #uses: EndBug/add-and-commit@v9
-          #with:
-          #author_name: Build Version
-          #author_email: pipeline@adviser.com
-          #tag: ${{ env.BUILD_VERSION }}
-
 
       - name: Set up Docker Buildx
         if: ${{ env.PUSH_TAG == 'needed' }}
