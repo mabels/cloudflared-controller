@@ -34,7 +34,7 @@ jobs:
 
       - name: Create CRDs from cloudflare-schema
         run: |
-          node build-crd/build.js > cloudflare-schema.crds.json
+          node build-crd/build-crd.mjs > cloudflare-schema.crds.json
           kubectl apply -f cloudflare-schema.crds.json
           kubectl apply -f build-crd/access-group.example.yaml
           kubectl apply -f build-crd/cfd-tunnel.example.yaml
