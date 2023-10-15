@@ -3,14 +3,14 @@ module github.com/mabels/cloudflared-controller
 go 1.19
 
 require (
-	github.com/cloudflare/cloudflare-go v0.77.0
+	github.com/cloudflare/cloudflare-go v0.79.0
 	github.com/cloudflare/cloudflared v0.0.0-20230417170412-3996b1adcad2
 	github.com/stretchr/testify v1.8.4
 	k8s.io/api v0.27.1
 	k8s.io/client-go v0.27.1
 )
 
-replace github.com/cloudflare/cloudflare-go => /Users/menabe/Software/cloudflare-go
+// replace github.com/cloudflare/cloudflare-go => /Users/menabe/Software/cloudflare-go
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
@@ -49,10 +49,10 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/rs/zerolog v1.29.1
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/net v0.15.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
