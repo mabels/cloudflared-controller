@@ -228,7 +228,7 @@ func updateCFTunnel(cfc types.CFController, tparam *types.CFTunnelParameterWithI
 		}
 	}
 	// updateConfigMap state
-	cm.Annotations[config.AnnotationCloudflareTunnelState()] = "ready"
+	// cm.Annotations[config.AnnotationCloudflareTunnelState()] = "ready"
 	cm.Annotations[config.AnnotationCloudflareTunnelId()] = tparam.ID.String()
 	cm.Annotations[config.AnnotationCloudflareTunnelCFDName()] = config.CfTunnelName(cfc, &tparam.CFTunnelParameter)
 	return k8s_data.UpsertConfigMap(cfc, &tparam.CFTunnelParameter, cm)
@@ -339,20 +339,20 @@ func ConfigMapHandlerPrepareCloudflared(_cfc types.CFController) func() {
 			c.SetLog(&log)
 		})
 
-		state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
-		if !found {
-			cfc.Log().Error().Msg("error getting state")
-			return
-		}
-		switch state {
-		case "ready":
-			cfc.Log().Debug().Msg("ignoring preparing state")
-			return
-		case "preparing":
-		default:
-			cfc.Log().Error().Str("state", state).Msg("unknown state")
-			return
-		}
+		// state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
+		// if !found {
+		// 	cfc.Log().Error().Msg("error getting state")
+		// 	return
+		// }
+		// switch state {
+		// case "ready":
+		// 	cfc.Log().Debug().Msg("ignoring preparing state")
+		// 	return
+		// case "preparing":
+		// default:
+		// 	cfc.Log().Error().Str("state", state).Msg("unknown state")
+		// 	return
+		// }
 
 		switch ev.Type {
 		case watch.Added:

@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: 1.21
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.5.0
@@ -31,6 +31,16 @@ jobs:
 
       - name: Test
         run: go test -v ./...
+
+      - name: Create CRDs from cloudflare-schema
+        run: |
+          node build-crd/build.js > cloudflare-schema.crds.json
+          kubectl apply -f cloudflare-schema.crds.json
+          kubectl apply -f build-crd/access-group.example.yaml
+          kubectl apply -f build-crd/cfd-tunnel.example.yaml
+          kubectl apply -f build-crd/cfd-tunnel-config.example.yaml
+          git add cloudflare-schema.crds.json
+          git commit -am "chore: update build time cloudflare-schema.crds.json"
 
       - name: Get Latest Cloudflared Version
         run: |

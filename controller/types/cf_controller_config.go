@@ -25,7 +25,11 @@ type CFControllerConfig struct {
 	RestartDelay           time.Duration
 	ConfigMapLabelSelector string
 	CloudFlare             CFControllerCloudflareConfig
-	Leader                 struct {
+	TestCreateAccess       bool
+	AccessGroup            struct {
+		ConfigMapsNames []string
+	}
+	Leader struct {
 		Name          string
 		Namespace     string
 		LeaseDuration time.Duration

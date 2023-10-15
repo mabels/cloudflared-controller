@@ -47,6 +47,7 @@ func GetConfig(log *zerolog.Logger, version string) (*types.CFControllerConfig, 
 	pflag.StringVar(&cfg.Leader.Name, "leader-name", "cloudflared-controller", "leader elected name")
 	pflag.StringVar(&cfg.Leader.Namespace, "leader-namespace", "default", "leader election namespace")
 	pflag.IntVar(&cfg.ChannelSize, "channel-size", 10, "channel size")
+	pflag.BoolVar(&cfg.TestCreateAccess, "test-create-access", false, "test create access")
 	pflag.Parse()
 	if cfg.CloudFlare.ApiToken == "" {
 		return nil, fmt.Errorf("Cloudflare API Key is required")
@@ -74,9 +75,10 @@ func AnnotationCloudflareTunnelCFDName() string {
 func AnnotationCloudflareTunnelExternalName() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-external-name")
 }
-func AnnotationCloudflareTunnelState() string {
-	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-state")
-}
+
+// func AnnotationCloudflareTunnelState() string {
+// 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-state")
+// }
 
 // AnnotationCloudflareTunnelConfigMap    = "cloudflare.com/tunnel-configmap"
 // "preparing", "ready"

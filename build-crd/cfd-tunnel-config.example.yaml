@@ -1,0 +1,38 @@
+apiVersion: cloudflare.adviser.com/v1beta1
+kind: CFDTunnelConfig
+metadata:
+  name: example
+  namespace: product-pipeline
+spec:
+  config:
+    ingress: 
+        - hostname: argocd.6265746f6f.tech
+          path: /
+          service: https://argocd-server.argocd:1443
+          originRequest:
+            noTLSVerify: true
+            httpHostHeader: argocd-server
+        - hostname: opensea.6265746f6f.tech
+          path: /
+          service: http://quickstart-kb-http.default:5601
+          originRequest:
+            noTLSVerify: false
+            httpHostHeader: quickstart-kb-http
+        - hostname: meno-betoo-ui.6265746f6f.tech
+          path: ^\/(assets\/|favicon\/|fonts\/|logo\/|manifest\.json|_next\/static\/)
+          service: http://meno-betoo-ui.frontend:80
+          originRequest:
+            noTLSVerify: false
+            httpHostHeader: meno-betoo-ui
+        - hostname: meno-betoo-ui.6265746f6f.tech
+          path: /
+          service: http://meno-betoo-ui.frontend:3000
+          originRequest:
+            noTLSVerify: false
+            httpHostHeader: meno-betoo-ui
+        - hostname: rabbitmq.6265746f6f.tech
+          path: /
+          service: http://rabbitmq.product-pipeline:15672
+          originRequest:
+            noTLSVerify: false
+            httpHostHeader: rabbitmq

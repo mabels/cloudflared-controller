@@ -1,7 +1,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  annotations:
   labels:
     app.kubernetes.io/instance: cloudflared-controller
     app.kubernetes.io/name: cloudflared-controller
@@ -27,7 +26,7 @@ rules:
   - watch
 - apiGroups:
   - ""
-  resourceNames: 
+  resourceNames:
   - "cfd-tunnel-cfg.*"
   - "cfd-tunnel-key.*"
   resources:
@@ -44,7 +43,7 @@ rules:
   resources: ["leases"]
   resourceNames:
   - "cloudflared-controller"
-  verbs: 
+  verbs:
   - "get"
   - update
   - create

@@ -60,6 +60,12 @@ func main() {
 	if err != nil {
 		cfc.Log().Fatal().Err(err).Msg("Failed to get config")
 	}
+
+	if cfg.TestCreateAccess {
+		controller.CreateAccessApp(cfg)
+		return
+	}
+
 	cfc.SetCfg(cfg)
 	if cfc.Cfg().ShowVersion {
 		fmt.Printf("Version:%s\n", Version)

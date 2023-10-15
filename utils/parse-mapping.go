@@ -10,6 +10,29 @@ import (
 
 var validSchema = []string{"http", "https", "https-notlsverify"}
 
+// AccessGroupEmail
+// AccessGroupEmailDomain
+// AccessGroupIP
+// AccessGroupGeo
+// AccessGroupServiceToken
+// AccessGroupAnyValidServiceToken
+// AccessGroupAccessGroup
+// AccessGroupCertificate
+// AccessGroupCertificateCommonName
+// AccessGroupExternalEvaluation
+// AccessGroupGSuite
+// AccessGroupGitHub
+// AccessGroupAzure
+// AccessGroupOkta
+// AccessGroupSAML
+// AccessGroupAzureAuthContext
+// AccessGroupAuthMethod
+// AccessGroupLoginMethod
+// AccessGroupDevicePosture
+// AccessGroupDevicePosture
+// AccessGroupIPList
+// AccessGroupDetailResponse
+
 func isValidSchema(schema string) *string {
 	for _, s := range validSchema {
 		if s == schema {

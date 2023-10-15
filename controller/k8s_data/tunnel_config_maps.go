@@ -112,7 +112,7 @@ func (ts *tunnelConfigMaps) UpsertConfigMap(cfc types.CFController, tparam *type
 		annos[k] = v
 	}
 	annos[config.AnnotationCloudflareTunnelK8sSecret()] = tparam.K8SSecretName().FQDN
-	annos[config.AnnotationCloudflareTunnelState()] = "preparing"
+	// annos[config.AnnotationCloudflareTunnelState()] = "preparing"
 
 	delete(annos, config.AnnotationCloudflareTunnelExternalName())
 	delete(annos, config.AnnotationCloudflareTunnelK8sConfigMap())
@@ -145,7 +145,7 @@ func (ts *tunnelConfigMaps) RemoveConfigMap(cfc types.CFController, kind string,
 				Name:      toUpdate.GetName(),
 			})
 			client := cfc.Rest().K8s().CoreV1().ConfigMaps(toUpdate.GetNamespace())
-			toUpdate.Annotations[config.AnnotationCloudflareTunnelState()] = "preparing"
+			// toUpdate.Annotations[config.AnnotationCloudflareTunnelState()] = "preparing"
 			_, err := client.Update(cfc.Context(), toUpdate, metav1.UpdateOptions{})
 			unlock()
 			if err != nil {

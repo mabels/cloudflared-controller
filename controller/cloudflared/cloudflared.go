@@ -346,20 +346,20 @@ func ConfigMapHandlerStartCloudflared(_cfc types.CFController) func(cms []*corev
 			cfc.Log().Error().Msg("error casting object")
 			return
 		}
-		state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
-		if !found {
-			cfc.Log().Error().Msg("error getting state")
-			return
-		}
-		switch state {
-		case "ready":
-		case "preparing":
-			cfc.Log().Debug().Msg("ignoring preparing state")
-			return
-		default:
-			cfc.Log().Error().Str("state", state).Msg("unknown state")
-			return
-		}
+		// state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
+		// if !found {
+		// 	cfc.Log().Error().Msg("error getting state")
+		// 	return
+		// }
+		// switch state {
+		// case "ready":
+		// case "preparing":
+		// 	cfc.Log().Debug().Msg("ignoring preparing state")
+		// 	return
+		// default:
+		// 	cfc.Log().Error().Str("state", state).Msg("unknown state")
+		// 	return
+		// }
 		switch ev.Type {
 		case watch.Added:
 			tr.Start(cfc, cm)

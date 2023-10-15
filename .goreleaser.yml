@@ -1,8 +1,8 @@
 before:
   hooks:
     - go mod download
-release:
-  prerelease: {{ .Env.PRERELEASE }}
+#release:
+#  prerelease: {{ .Env.PRERELEASE }}
 builds:
   - env:
       - CGO_ENABLED=0

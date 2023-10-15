@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	cfgo "github.com/cloudflare/cloudflare-go"
 	"github.com/cloudflare/cloudflared/cfapi"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"k8s.io/client-go/kubernetes"
@@ -16,6 +17,8 @@ type RestClients struct {
 	// Cf  *cfapi.RESTClient
 	cfsLock sync.Mutex
 	cfs     map[string]*cfapi.RESTClient
+
+	cfgoAPI *cfgo.API
 
 	clientSet *kubernetes.Clientset
 }
@@ -34,6 +37,31 @@ func (rc *RestClients) K8s() *kubernetes.Clientset {
 
 func (rc *RestClients) SetK8s(cs *kubernetes.Clientset) {
 	rc.clientSet = cs
+}
+
+type cfgoLogger struct {
+	cfc types.CFController
+}
+
+// Printf implements cloudflare.Logger.
+func (cl *cfgoLogger) Printf(format string, v ...interface{}) {
+	cl.cfc.Log().Info().Str("cfgo", fmt.Sprintf(format, v...)).Msg("cfgo log")
+}
+
+func (rc *RestClients) Cfgo() (*cfgo.API, error) {
+	rc.cfsLock.Lock()
+	defer rc.cfsLock.Unlock()
+	if rc.cfgoAPI == nil {
+		var err error
+
+		rc.cfgoAPI, err = cfgo.NewWithAPIToken(rc.cfc.Cfg().CloudFlare.ApiToken,
+			cfgo.UsingLogger(&cfgoLogger{cfc: rc.cfc}))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return rc.cfgoAPI, nil
+
 }
 
 func (rc *RestClients) CFClientWithoutZoneID() (*cfapi.RESTClient, error) {
