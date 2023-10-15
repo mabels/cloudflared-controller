@@ -2,10 +2,9 @@ apiVersion: cloudflare.adviser.com/v1beta1
 kind: CFDTunnelConfig
 metadata:
   name: example
-  namespace: product-pipeline
 spec:
   config:
-    ingress: 
+    ingress:
         - hostname: argocd.6265746f6f.tech
           path: /
           service: https://argocd-server.argocd:1443

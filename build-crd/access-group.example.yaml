@@ -2,7 +2,6 @@ apiVersion: cloudflare.adviser.com/v1beta1
 kind: AccessGroup
 metadata:
   name: example
-  namespace: product-pipeline
 spec:
   name: ag-example
   include:

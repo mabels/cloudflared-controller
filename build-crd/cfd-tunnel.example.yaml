@@ -2,7 +2,6 @@ apiVersion: cloudflare.adviser.com/v1beta1
 kind: CFDTunnel
 metadata:
   name: example
-  namespace: product-pipeline
 spec:
   name: cfd-example
   config_src: "local"
