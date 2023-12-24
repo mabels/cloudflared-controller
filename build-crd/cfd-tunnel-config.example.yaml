@@ -1,4 +1,4 @@
-apiVersion: cloudflare.adviser.com/v1beta1
+apiVersion: cloudflare.adviser.com/v1alpha1
 kind: CFDTunnelConfig
 metadata:
   name: example

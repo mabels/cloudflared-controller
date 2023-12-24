@@ -9,6 +9,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//  /xxxxx[AccessGroup=xxxxx,HttpHostHeader=ooo,NoTLSVerify=eeooe]
+// HttpHostHeader: svc.Name,
+// NoTLSVerify:    noTLSVerify,
+// \[((?:[^\[\]\\]|\\.)*)\]
+// ((?:[^\s+\,\\\s*]|\\.)*)
+
+func TestRemoveMeta(t *testing.T) {
+	log := zerolog.New(os.Stdout).With().Logger()
+	mapping := ParseSvcMapping(&log, `ha[y\[y\=x=kk,lhs1=rhs1\]y]lkk[xxx]dssd][lo`)
+	assert.Equal(t, mapping, []types.SvcAnnotationMapping{
+		{
+			PortName: "halkkdssd][lo",
+			Schema:   "http",
+			Path:     "/",
+			Order:    0,
+			Meta: types.Meta{
+				Unknown: `y\[y\]y|xxx`,
+			},
+		}})
+}
+
 func TestParseMapping(t *testing.T) {
 	log := zerolog.New(os.Stdout).With().Logger()
 
@@ -58,14 +79,12 @@ func TestParseMappingPortSchema(t *testing.T) {
 		Schema:   "http",
 		Path:     "/",
 		Order:    0,
-	},
-		{
-			PortName: "murks",
-			Schema:   "https",
-			Path:     "/",
-			Order:    1,
-		},
-	})
+	}, {
+		PortName: "murks",
+		Schema:   "https",
+		Path:     "/",
+		Order:    1,
+	}})
 }
 
 func TestParseMappingNextJS(t *testing.T) {

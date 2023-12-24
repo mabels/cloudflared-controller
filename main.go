@@ -11,11 +11,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/kubectl/pkg/scheme"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
 
 	"github.com/mabels/cloudflared-controller/controller"
+	"github.com/mabels/cloudflared-controller/controller/cloudflare"
 	"github.com/mabels/cloudflared-controller/controller/cloudflared"
 	"github.com/mabels/cloudflared-controller/controller/config"
 	"github.com/mabels/cloudflared-controller/controller/ingress"
@@ -75,6 +77,8 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
+	cloudflare.AddToScheme(scheme.Scheme)
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	// signal.Notify(c, os.Kill)
@@ -133,6 +137,7 @@ func main() {
 					runningLeaders = append(runningLeaders,
 						ingress.Start(cfc),
 						svc.Start(cfc),
+						cloudflare.Start(cfc),
 						cloudflared.ConfigMapHandlerPrepareCloudflared(cfc))
 				}()
 			},

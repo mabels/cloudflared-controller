@@ -1,10 +1,14 @@
 package types
 
+type Meta struct {
+	Unknown string
+}
 type SvcAnnotationMapping struct {
 	PortName string
 	Schema   string
 	Path     string
 	Order    int
+	Meta     Meta
 }
 
 // hostname/schema[/hostheader]|path,

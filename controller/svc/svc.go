@@ -312,7 +312,6 @@ func Start(cfc types.CFController) func() {
 		}
 		unreg()
 	}
-
 }
 
 // func Start(cfc types.CFController) func() {
