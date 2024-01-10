@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"reflect"
 
 	"github.com/mabels/cloudflared-controller/controller/cloudflare"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -35,6 +36,9 @@ func (c namedEventHandlerFuncs) OnDelete(obj interface{}) {
 
 // OnUpdate implements cache.ResourceEventHandler.
 func (c namedEventHandlerFuncs) OnUpdate(oldObj interface{}, newObj interface{}) {
+	if reflect.DeepEqual(oldObj, newObj) {
+		return
+	}
 	fmt.Printf("OnUpdate: %s:%+v=>%+v\n", c.name, oldObj, newObj)
 }
 

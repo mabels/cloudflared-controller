@@ -2,8 +2,11 @@ package cloudflare
 
 import (
 	"context"
+	"sync"
 	"time"
 
+	"github.com/mabels/cloudflared-controller/controller/namespaces"
+	"github.com/mabels/cloudflared-controller/controller/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -12,6 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 type CloudflareV1Beta1Interface interface {
@@ -26,7 +31,7 @@ type CloudflareV1Beta1Client struct {
 }
 
 const GroupName = "cloudflare.adviser.com"
-const GroupVersion = "v1beta1"
+const GroupVersion = "v1alpha1"
 
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
 
@@ -143,4 +148,61 @@ func WatchAccessGroups(clientSet CloudflareV1Beta1Interface, ns string, handler 
 
 	projectController.Run(wait.NeverStop)
 	return projectStore
+}
+
+type watcherBindingCloudflare struct {
+}
+
+type cloudflareWatchers struct {
+	lock  sync.Mutex
+	items map[string]watcherBindingCloudflare
+}
+
+func Start(cfc types.CFController) func() {
+	// svcs := &services{
+	// 	items: make(map[string]watcherBindingServices),
+	// }
+	unreg := cfc.K8sData().Namespaces.RegisterEvent(func(_ []*corev1.Namespace, ev watch.Event) {
+		ns, ok := ev.Object.(*corev1.Namespace)
+		if !ok {
+			cfc.Log().Error().Msg("Failed to cast to Namespace")
+			return
+		}
+		if namespaces.SkipNamespace(cfc, ns.Name) {
+			return
+		}
+		cloudflareWatchers.lock.Lock()
+		defer cloudflareWatchers.lock.Unlock()
+		switch ev.Type {
+		case watch.Added:
+			if _, ok := cloudflareWatchers.items[ns.Name]; !ok {
+				wif, err := startServiceWatcher(cfc, ns.Name)
+				if err != nil {
+					cfc.Log().Error().Err(err).Msg("Failed to start ingress watcher")
+					return
+				}
+				svcs.items[ns.Name] = wif
+			}
+		case watch.Modified:
+		case watch.Deleted:
+			my, ok := svcs.items[ns.Name]
+			if !ok {
+				delete(svcs.items, ns.Name)
+				my.unregisterEvent()
+				my.watcher.Stop()
+			}
+		default:
+			cfc.Log().Error().Msgf("Unknown event type: %s", ev.Type)
+		}
+	})
+	cfc.Log().Debug().Str("component", "svc").Msg("Started watcher")
+	return func() {
+		svcs.lock.Lock()
+		defer svcs.lock.Unlock()
+		for _, v := range svcs.items {
+			v.unregisterEvent()
+			v.watcher.Stop()
+		}
+		unreg()
+	}
 }

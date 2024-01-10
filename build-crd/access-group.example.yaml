@@ -1,4 +1,4 @@
-apiVersion: cloudflare.adviser.com/v1beta1
+apiVersion: cloudflare.adviser.com/v1alpha1
 kind: AccessGroup
 metadata:
   name: example
@@ -6,6 +6,6 @@ spec:
   name: ag-example
   include:
   - email:
-      email: "test@doof.de"
+      email: "test@doof.us"
   - email_domain:
       domain: "doof.up"

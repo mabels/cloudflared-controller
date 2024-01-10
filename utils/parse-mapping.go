@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"encoding/json"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -42,6 +44,32 @@ func isValidSchema(schema string) *string {
 	return nil
 }
 
+var reMeta = regexp.MustCompile(`\[((?:[^\[\]\\]|\\.)*)\]`)
+
+var reSplitComma = regexp.MustCompile(`((?:[^\s+\,\\\s*]|\\.)*)`)
+
+var reSplitEqual = regexp.MustCompile(`/((?:[^=\\\s]|\\.)*)\s*=\s*(.*)/`)
+
+func removeMeta(mapping string) (string, map[string]string) {
+	meta := reMeta.FindAllStringSubmatch(mapping, -1)
+	out := []string{}
+	for _, m := range meta {
+		out = append(out, m[1])
+	}
+	comma := strings.Join(out, ",")
+	splitted := reSplitComma.FindAllStringSubmatch(comma, -1)
+	pairs := map[string]string{}
+	for _, m := range splitted {
+		if m[0] != "" {
+			equalSplitted := reSplitEqual.FindStringSubmatch(m[0])
+			if len(equalSplitted) == 3 {
+				pairs[equalSplitted[1]] = equalSplitted[2]
+			}
+		}
+	}
+	return reMeta.ReplaceAllString(mapping, ""), pairs
+}
+
 func ParseSvcMapping(log *zerolog.Logger, mapping string) []types.SvcAnnotationMapping {
 	splitted := strings.Split(mapping, ",")
 	for i, m := range splitted {
@@ -49,6 +77,7 @@ func ParseSvcMapping(log *zerolog.Logger, mapping string) []types.SvcAnnotationM
 	}
 	ret := []types.SvcAnnotationMapping{}
 	for _, m := range splitted {
+		m, metaStr := removeMeta(m)
 		splitted := strings.SplitN(m, "/", 2)
 		pipeOrSlash := ""
 		if len(splitted) == 2 {
@@ -78,7 +107,12 @@ func ParseSvcMapping(log *zerolog.Logger, mapping string) []types.SvcAnnotationM
 			}
 		}
 
-		amap := types.SvcAnnotationMapping{}
+		out, _ := json.Marshal(metaStr)
+		amap := types.SvcAnnotationMapping{
+			Meta: types.Meta{
+				Unknown: string(out),
+			},
+		}
 		if len(splitted) > 0 && splitted[0] != "" {
 			amap.PortName = splitted[0]
 		} else {

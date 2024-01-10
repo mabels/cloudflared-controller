@@ -33,7 +33,7 @@ function Frame(names) {
       group: "cloudflare.adviser.com",
       versions: [
         {
-          name: "v1beta1",
+          name: "v1alpha1",
           served: true,
           storage: true,
           schema: {
