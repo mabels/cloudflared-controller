@@ -6,7 +6,7 @@ builds:
       - CGO_ENABLED=0
     id: "cloudflared-controller"
     ldflags:
-      - "-s -w -X main.Version='{{.Version}}' -X main.GitCommit={{.Commit}}"
+      - "-s -w -X main.Version={{.Version}} -X main.GitCommit={{.Commit}}"
 #      - freebsd
     goos:
       - linux
