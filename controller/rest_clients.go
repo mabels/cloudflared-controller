@@ -92,6 +92,7 @@ func (rc *RestClients) GetCFClientForDomain(domain string) (*cfapi.RESTClient, e
 			return nil, err
 		}
 		for _, zone := range zones {
+			rc.cfc.Log().Debug().Str("zone", zone.Name).Msg("client for zone")
 			rc.cfs[zone.Name], err = cfapi.NewRESTClient(
 				rc.cfc.Cfg().CloudFlare.ApiUrl,
 				rc.cfc.Cfg().CloudFlare.AccountId, // accountTag string,

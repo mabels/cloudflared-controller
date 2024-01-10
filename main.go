@@ -27,6 +27,7 @@ import (
 	"github.com/mabels/cloudflared-controller/utils"
 
 	"github.com/rs/zerolog"
+        "github.com/joho/godotenv"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -55,6 +56,14 @@ func main() {
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	klog.SetOutput(utils.ConnectKlog2ZeroLog(&_log))
 	klog.LogToStderr(false)
+
+
+	err := godotenv.Load()
+        if err != nil {
+           _log.Fatal().Err(err).Msg("Error loading .env file")
+        }
+
+
 	cfc := controller.NewCFController(&_log)
 	cfg, err := config.GetConfig(cfc.Log(), Version)
 	if err != nil {

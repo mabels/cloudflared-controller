@@ -6,6 +6,7 @@ import (
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/types"
+	"github.com/mabels/cloudflared-controller/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -22,8 +23,9 @@ type localController struct {
 
 func getZones(cfc types.CFController) ([]cloudflare.Zone, error) {
 	client, err := cloudflare.NewExperimental(&cloudflare.ClientParams{
-		Token: cfc.Cfg().CloudFlare.ApiToken,
-		// Logger: cfc.Log,
+		Token:  cfc.Cfg().CloudFlare.ApiToken,
+		Logger: utils.NewLeveledLogger(cfc.Log()),
+		// Debug:  true,
 	})
 	if err != nil {
 		return nil, err
