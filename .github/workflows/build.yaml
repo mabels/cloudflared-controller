@@ -80,7 +80,7 @@ jobs:
             echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
             echo PRERELEASE=false | tee -a $GITHUB_ENV
           else
-            if [[ "${{ github.event_name }}" = schedule -o -n "${{ inputs.tag }}" ]]
+            if [ "${{ github.event_name }}" = schedule -o -n "${{ inputs.tag }}" ]
             then
                CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
                echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
