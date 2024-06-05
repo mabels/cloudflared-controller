@@ -4,6 +4,12 @@ on:
   pull_request:
   push:
 
+  workflow_dispatch:
+    inputs:
+      schedule:
+        description: 'Simulate a schedule build'
+        type: string
+
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
@@ -74,7 +80,7 @@ jobs:
             echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
             echo PRERELEASE=false | tee -a $GITHUB_ENV
           else
-            if [[ ${{ github.event_name }} == schedule ]]
+            if [[ ${{ github.event_name }} == schedule -o -n ${{ inputs.tag}} ]]
             then
                CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
                echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
@@ -92,8 +98,16 @@ jobs:
           else
             echo "PUSH_TAG=needed" | tee -a $GITHUB_ENV
             echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
-            git tag $BUILD_VERSION
+            echo "CTRL_VERSION=$CTRL_VERSION" | tee -a $GITHUB_ENV
+            # git tag $BUILD_VERSION
           fi
+
+      - name: Checkout Right Version
+        if: ${{ env.PUSH_TAG == 'needed' }}
+        uses: actions/checkout@v4
+        with:
+            ref: ${{ env.CTRL_VERSION }}
+            fetch-depth: 0
 
       - name: Set up Docker Buildx
         if: ${{ env.PUSH_TAG == 'needed' }}
