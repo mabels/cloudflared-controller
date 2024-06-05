@@ -121,7 +121,7 @@ function cfd_tunnel(dictCFApi) {
   });
   const out = {
     type: "object",
-    ...dictCFApi.paths["/accounts/{account_identifier}/cfd_tunnel"].post
+    ...dictCFApi.paths["/accounts/{account_id}/cfd_tunnel"].post
       .requestBody.content["application/json"].schema,
   };
   resolve(out, dictCFApi);
@@ -141,7 +141,7 @@ function cfd_tunnel_config(dictCFApi) {
   const out = {
     type: "object",
     ...dictCFApi.paths[
-      "/accounts/{account_identifier}/cfd_tunnel/{tunnel_id}/configurations"
+      "/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations"
     ].put.requestBody.content["application/json"].schema,
   };
   resolve(out, dictCFApi);
@@ -161,7 +161,7 @@ function accessGroup(dictCFApi) {
   });
   const out = {
     type: "object",
-    ...dictCFApi.paths["/accounts/{identifier}/access/groups"].post.requestBody
+    ...dictCFApi.paths["/accounts/{account_id}/access/groups"].post.requestBody
       .content["application/json"].schema,
   };
   resolve(out, dictCFApi);

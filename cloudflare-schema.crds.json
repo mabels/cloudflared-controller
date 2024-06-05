@@ -51,6 +51,18 @@
                               ],
                               "type": "object"
                             },
+                            "email_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
                             "email_domain": {
                               "properties": {
                                 "domain": {
@@ -191,12 +203,86 @@
                                 "attribute_value"
                               ],
                               "type": "object"
+                            },
+                            "service_token": {
+                              "properties": {
+                                "token_id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "token_id"
+                              ],
+                              "type": "object"
+                            },
+                            "any_valid_service_token": {
+                              "example": {},
+                              "type": "object"
+                            },
+                            "external_evaluation": {
+                              "properties": {
+                                "evaluate_url": {
+                                  "example": "https://eval.example.com",
+                                  "type": "string"
+                                },
+                                "keys_url": {
+                                  "example": "https://eval.example.com/keys",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "evaluate_url",
+                                "keys_url"
+                              ],
+                              "type": "object"
+                            },
+                            "geo": {
+                              "properties": {
+                                "country_code": {
+                                  "example": "US",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "country_code"
+                              ],
+                              "type": "object"
+                            },
+                            "auth_method": {
+                              "properties": {
+                                "auth_method": {
+                                  "example": "mfa",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "auth_method"
+                              ],
+                              "type": "object"
+                            },
+                            "device_posture": {
+                              "properties": {
+                                "integration_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "integration_uid"
+                              ],
+                              "type": "object"
                             }
                           },
                           "oneOf": [
                             {
                               "required": [
                                 "email"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_list"
                               ]
                             },
                             {
@@ -252,6 +338,36 @@
                             {
                               "required": [
                                 "saml"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "any_valid_service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "external_evaluation"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "geo"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "auth_method"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "device_posture"
                               ]
                             }
                           ]
@@ -275,6 +391,18 @@
                               ],
                               "type": "object"
                             },
+                            "email_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
                             "email_domain": {
                               "properties": {
                                 "domain": {
@@ -415,12 +543,86 @@
                                 "attribute_value"
                               ],
                               "type": "object"
+                            },
+                            "service_token": {
+                              "properties": {
+                                "token_id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "token_id"
+                              ],
+                              "type": "object"
+                            },
+                            "any_valid_service_token": {
+                              "example": {},
+                              "type": "object"
+                            },
+                            "external_evaluation": {
+                              "properties": {
+                                "evaluate_url": {
+                                  "example": "https://eval.example.com",
+                                  "type": "string"
+                                },
+                                "keys_url": {
+                                  "example": "https://eval.example.com/keys",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "evaluate_url",
+                                "keys_url"
+                              ],
+                              "type": "object"
+                            },
+                            "geo": {
+                              "properties": {
+                                "country_code": {
+                                  "example": "US",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "country_code"
+                              ],
+                              "type": "object"
+                            },
+                            "auth_method": {
+                              "properties": {
+                                "auth_method": {
+                                  "example": "mfa",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "auth_method"
+                              ],
+                              "type": "object"
+                            },
+                            "device_posture": {
+                              "properties": {
+                                "integration_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "integration_uid"
+                              ],
+                              "type": "object"
                             }
                           },
                           "oneOf": [
                             {
                               "required": [
                                 "email"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_list"
                               ]
                             },
                             {
@@ -477,9 +679,43 @@
                               "required": [
                                 "saml"
                               ]
+                            },
+                            {
+                              "required": [
+                                "service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "any_valid_service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "external_evaluation"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "geo"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "auth_method"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "device_posture"
+                              ]
                             }
                           ]
                         }
+                      },
+                      "is_default": {
+                        "description": "Whether this is the default group",
+                        "type": "boolean"
                       },
                       "name": {
                         "description": "The name of the Access group.",
@@ -504,6 +740,18 @@
                               ],
                               "type": "object"
                             },
+                            "email_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
                             "email_domain": {
                               "properties": {
                                 "domain": {
@@ -644,12 +892,86 @@
                                 "attribute_value"
                               ],
                               "type": "object"
+                            },
+                            "service_token": {
+                              "properties": {
+                                "token_id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "token_id"
+                              ],
+                              "type": "object"
+                            },
+                            "any_valid_service_token": {
+                              "example": {},
+                              "type": "object"
+                            },
+                            "external_evaluation": {
+                              "properties": {
+                                "evaluate_url": {
+                                  "example": "https://eval.example.com",
+                                  "type": "string"
+                                },
+                                "keys_url": {
+                                  "example": "https://eval.example.com/keys",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "evaluate_url",
+                                "keys_url"
+                              ],
+                              "type": "object"
+                            },
+                            "geo": {
+                              "properties": {
+                                "country_code": {
+                                  "example": "US",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "country_code"
+                              ],
+                              "type": "object"
+                            },
+                            "auth_method": {
+                              "properties": {
+                                "auth_method": {
+                                  "example": "mfa",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "auth_method"
+                              ],
+                              "type": "object"
+                            },
+                            "device_posture": {
+                              "properties": {
+                                "integration_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "integration_uid"
+                              ],
+                              "type": "object"
                             }
                           },
                           "oneOf": [
                             {
                               "required": [
                                 "email"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_list"
                               ]
                             },
                             {
@@ -705,6 +1027,36 @@
                             {
                               "required": [
                                 "saml"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "any_valid_service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "external_evaluation"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "geo"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "auth_method"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "device_posture"
                               ]
                             }
                           ]
@@ -821,7 +1173,7 @@
                         "type": "string"
                       },
                       "name": {
-                        "description": "A user-friendly name for the tunnel.",
+                        "description": "A user-friendly name for a tunnel.",
                         "example": "blog",
                         "type": "string"
                       },
@@ -941,7 +1293,7 @@
                                   "type": "string"
                                 },
                                 "originRequest": {
-                                  "description": "Configuration parameters of connection between cloudflared and origin server.",
+                                  "description": "Configuration parameters for the public hostname specific connection settings between cloudflared and origin server.",
                                   "properties": {
                                     "access": {
                                       "properties": {
@@ -1037,7 +1389,7 @@
                             "type": "array"
                           },
                           "originRequest": {
-                            "description": "Configuration parameters of connection between cloudflared and origin server.",
+                            "description": "Configuration parameters for the public hostname specific connection settings between cloudflared and origin server.",
                             "properties": {
                               "access": {
                                 "properties": {
