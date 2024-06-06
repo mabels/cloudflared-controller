@@ -28,17 +28,15 @@ jobs:
         run: |
           node .github/workflows/query_versions.js cloudflare/cloudflared | tee -a $GITHUB_ENV
 
-      - name: 'Get Current tag'
-        id: currentTag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
-        with:
-          prefix: v
+      - name: 'Get LAST_RELEASE'
+        run: |
+         echo LAST_RELEASE=$(git tag  | egrep '^v\d+\.\d+\.\d+$' | sort -t . -k1,1n -k2,2n -k3,3n | tail -1) | tee -a $GITHUB_ENV
 
       - name: 'Get next minor version'
         id: semvers
         uses: "WyriHaximus/github-action-next-semvers@v1"
         with:
-          version: ${{ steps.currentTag.outputs.tag }}
+          version: ${{ env.LAST_RELEASE }}
 
       - name: Check image
         run: |
@@ -51,8 +49,8 @@ jobs:
             else
               if [ "${{ github.event_name }}" = schedule -o -n "${{ inputs.tag }}" ]
               then
-                 CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
-                 GIT_REF=${{ steps.currentTag.outputs.tag }}
+                 CTRL_VERSION=v${{ env.LAST_RELEASE }}
+                 GIT_REF=${{ env.LAST_RELEASE }}
                  echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
                  echo PRERELEASE=false | tee -a $GITHUB_ENV
               else
