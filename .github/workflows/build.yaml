@@ -71,7 +71,6 @@ jobs:
               echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
               echo "CTRL_VERSION=$CTRL_VERSION" | tee -a $GITHUB_ENV
               echo "GIT_REF=$GIT_REF" | tee -a $GITHUB_ENV
-              # git tag $BUILD_VERSION
             fi
 
       - name: Checkout Right Version
@@ -117,6 +116,11 @@ jobs:
       - name: Set up Docker Buildx
         if: ${{ env.PUSH_TAG == 'needed' }}
         uses: docker/setup-buildx-action@v3
+
+      - name: make goreleaser happy
+        if: ${{ env.PUSH_TAG == 'needed' }}
+        run: |
+          git tag ${{ env.BUILD_VERSION }}
 
       - name: Run GoReleaser RELEASE
         if: ${{ env.PUSH_TAG == 'needed' }}
