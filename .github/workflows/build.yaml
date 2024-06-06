@@ -30,7 +30,14 @@ jobs:
 
       - name: 'Get LAST_RELEASE'
         run: |
-         echo LAST_RELEASE=$(git tag  | egrep '^v\d+\.\d+\.\d+$' | sort -t . -k1,1n -k2,2n -k3,3n | tail -1) | tee -a $GITHUB_ENV
+          echo "-1"
+          git tag
+          echo "-2"
+          git tag | egrep '^v\d+\.\d+\.\d+$'
+          echo "-3"
+          git tag | egrep '^v\d+\.\d+\.\d+$' | sort -t . -k1,1n -k2,2n -k3,3n
+          echo "-4"
+          echo LAST_RELEASE=$(git tag  | egrep '^v\d+\.\d+\.\d+$' | sort -t . -k1,1n -k2,2n -k3,3n | tail -1) | tee -a $GITHUB_ENV
 
       - name: 'Get next minor version'
         id: semvers
