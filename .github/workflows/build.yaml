@@ -24,31 +24,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.21
-
-      - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.10.0
-
-      - name: Build
-        run: go build -v ./...
-
-      - name: Test
-        run: go test -v ./...
-
-      - name: Create CRDs from cloudflare-schema
-        run: |
-          node build-crd/build-crd.mjs > cloudflare-schema.crds.json
-          kubectl apply -f cloudflare-schema.crds.json
-          kubectl apply -f build-crd/access-group.example.yaml
-          kubectl apply -f build-crd/cfd-tunnel.example.yaml
-          kubectl apply -f build-crd/cfd-tunnel-config.example.yaml
-          git diff --exit-code
-          # git add cloudflare-schema.crds.json
-          # git commit -am "chore: update build time cloudflare-schema.crds.json"
-
       - name: Get Latest Cloudflared Version
         run: |
           node .github/workflows/query_versions.js cloudflare/cloudflared | tee -a $GITHUB_ENV
@@ -65,49 +40,77 @@ jobs:
         with:
           version: ${{ steps.currentTag.outputs.tag }}
 
+      - name: Check image
+        run: |
+            if [[ ${{ github.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            then
+              CTRL_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/||')
+              echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
+              echo PRERELEASE=false | tee -a $GITHUB_ENV
+            else
+              if [ "${{ github.event_name }}" = schedule -o -n "${{ inputs.tag }}" ]
+              then
+                 CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
+                 echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
+                 echo PRERELEASE=false | tee -a $GITHUB_ENV
+              else
+                 CTRL_VERSION=v${{ steps.semvers.outputs.patch }}-pre$(git rev-parse --short HEAD)
+                 echo PRERELEASE=true | tee -a $GITHUB_ENV
+                 echo RELEASE_TAG=dev | tee -a $GITHUB_ENV
+              fi
+            fi
+            BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
+            if docker manifest inspect ghcr.io/mabels/cloudflared-controller:$BUILD_VERSION
+            then
+              echo "SKIP-RELEASE"
+            else
+              echo "PUSH_TAG=needed" | tee -a $GITHUB_ENV
+              echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
+              echo "CTRL_VERSION=$CTRL_VERSION" | tee -a $GITHUB_ENV
+              # git tag $BUILD_VERSION
+            fi
+
+      - name: Checkout Right Version
+        if: ${{ env.PUSH_TAG == 'needed' }}
+        uses: actions/checkout@v4
+        with:
+              ref: ${{ env.CTRL_VERSION }}
+              fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1.10.0
+
+      - name: Create CRDs from cloudflare-schema
+        run: |
+          node build-crd/build-crd.mjs > cloudflare-schema.crds.json
+          kubectl apply -f cloudflare-schema.crds.json
+          kubectl apply -f build-crd/access-group.example.yaml
+          kubectl apply -f build-crd/cfd-tunnel.example.yaml
+          kubectl apply -f build-crd/cfd-tunnel-config.example.yaml
+          git diff --exit-code
+          # git add cloudflare-schema.crds.json
+          # git commit -am "chore: update build time cloudflare-schema.crds.json"
+
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v ./...
+
+
+
       - name: Docker Login
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check image
-        run: |
-          if [[ ${{ github.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          then
-            CTRL_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/||')
-            echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
-            echo PRERELEASE=false | tee -a $GITHUB_ENV
-          else
-            if [ "${{ github.event_name }}" = schedule -o -n "${{ inputs.tag }}" ]
-            then
-               CTRL_VERSION=v${{ steps.currentTag.outputs.tag }}
-               echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
-               echo PRERELEASE=false | tee -a $GITHUB_ENV
-            else
-               CTRL_VERSION=v${{ steps.semvers.outputs.patch }}-pre$(git rev-parse --short HEAD)
-               echo PRERELEASE=true | tee -a $GITHUB_ENV
-               echo RELEASE_TAG=dev | tee -a $GITHUB_ENV
-            fi
-          fi
-          BUILD_VERSION=${CTRL_VERSION}-cfd${{ env.CLOUDFLARE_CLOUDFLARED_VERSION }}
-          if docker manifest inspect ghcr.io/mabels/cloudflared-controller:$BUILD_VERSION
-          then
-            echo "SKIP-RELEASE"
-          else
-            echo "PUSH_TAG=needed" | tee -a $GITHUB_ENV
-            echo "BUILD_VERSION=$BUILD_VERSION" | tee -a $GITHUB_ENV
-            echo "CTRL_VERSION=$CTRL_VERSION" | tee -a $GITHUB_ENV
-            # git tag $BUILD_VERSION
-          fi
-
-      - name: Checkout Right Version
-        if: ${{ env.PUSH_TAG == 'needed' }}
-        uses: actions/checkout@v4
-        with:
-            ref: ${{ env.CTRL_VERSION }}
-            fetch-depth: 0
 
       - name: Set up Docker Buildx
         if: ${{ env.PUSH_TAG == 'needed' }}
