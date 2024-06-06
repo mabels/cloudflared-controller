@@ -88,6 +88,10 @@ docker_manifests:
   image_templates:
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8
+- name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Env.BASE_VERSION }}
+  image_templates:
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
+  - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-arm64v8
 - name_template: ghcr.io/mabels/{{ .ProjectName }}:{{ .Env.RELEASE_TAG }}
   image_templates:
   - ghcr.io/mabels/{{ .ProjectName }}:{{ .Version }}-amd64
