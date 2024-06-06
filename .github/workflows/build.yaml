@@ -107,8 +107,6 @@ jobs:
       - name: Test
         run: go test -v ./...
 
-
-
       - name: Docker Login
         uses: docker/login-action@v3
         with:
@@ -128,4 +126,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: $${{ env.CTRL_VERSION }}
+          GORELEASER_PREVIOUS_TAG: ${{ steps.currentTag.outputs.tag }}
 
