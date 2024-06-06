@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
 
+  schedule:
+    - cron: "3 3 * * 0"
+
   workflow_dispatch:
     inputs:
       schedule:
@@ -130,7 +133,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean ${{ env.RELEASE_ACTION }}
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ env.BUILD_VERSION }}
