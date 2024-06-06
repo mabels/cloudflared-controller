@@ -126,6 +126,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: $${{ env.CTRL_VERSION }}
+          GORELEASER_CURRENT_TAG: ${{ env.BUILD_VERSION }}
           GORELEASER_PREVIOUS_TAG: ${{ steps.currentTag.outputs.tag }}
 
