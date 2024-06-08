@@ -57,7 +57,7 @@ jobs:
               GIT_REF=${{ github.ref }}
               echo RELEASE_ACTION="" | tee -a $GITHUB_ENV
               echo RELEASE_TAG=latest | tee -a $GITHUB_ENV
-              echo BASE_VERSION=$(echo ${{ env.CTRL_VERSION }} | sed 's/^v//') | tee -a $GITHUB_ENV
+              echo BASE_VERSION=$CTRL_VERSION | sed 's/^v//') | tee -a $GITHUB_ENV
             else
               if [ "${{ github.event_name }}" = schedule -o -n "${{ inputs.schedule }}" ]
               then
