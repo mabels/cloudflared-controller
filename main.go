@@ -57,12 +57,12 @@ func main() {
 	klog.SetOutput(utils.ConnectKlog2ZeroLog(&_log))
 	klog.LogToStderr(false)
 
-
-	err := godotenv.Load()
+	err := godotenv.Overload()
         if err != nil {
-           _log.Fatal().Err(err).Msg("Error loading .env file")
-        }
-
+           _log.Warn().Err(err).Msg("not loading from .env file")
+        } else {
+	   _log.Info().Msg("found .env file")
+	}
 
 	cfc := controller.NewCFController(&_log)
 	cfg, err := config.GetConfig(cfc.Log(), Version)
