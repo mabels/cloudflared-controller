@@ -53,6 +53,9 @@ type mockController struct {
 func (p *mockController) WithComponent(component string, fns ...func(types.CFController)) types.CFController {
 	return p
 }
+func (*mockController) Cache() types.Cacher {
+	panic("cache: implement me")
+}
 func (*mockController) RegisterShutdown(sfn func()) func() {
 	panic("implement me")
 }
