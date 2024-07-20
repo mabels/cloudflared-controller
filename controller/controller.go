@@ -2,18 +2,24 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/mabels/cloudflared-controller/utils"
 	"github.com/rs/zerolog"
+
+	"github.com/eko/gocache/lib/v4/cache"
+	gocache_store "github.com/eko/gocache/store/go_cache/v4"
+	gocache "github.com/patrickmn/go-cache"
 )
 
 type localController struct {
 	// types.CFController
 	shutdownFns map[string]func()
 	rest        *RestClients
+	cacher      types.Cacher
 	log         *zerolog.Logger
 	cfg         *types.CFControllerConfig
 	context     context.Context
@@ -22,19 +28,70 @@ type localController struct {
 }
 
 func getZones(cfc types.CFController) ([]cloudflare.Zone, error) {
-	client, err := cloudflare.NewExperimental(&cloudflare.ClientParams{
-		Token:  cfc.Cfg().CloudFlare.ApiToken,
-		Logger: utils.NewLeveledLogger(cfc.Log()),
-		// Debug:  true,
+	return cfc.Cache().GetZones(func() ([]cloudflare.Zone, error) {
+		client, err := cloudflare.NewExperimental(&cloudflare.ClientParams{
+			Token:  cfc.Cfg().CloudFlare.ApiToken,
+			Logger: utils.NewLeveledLogger(cfc.Log()),
+			// Debug:  true,
+		})
+		if err != nil {
+			cfc.Log().Error().Err(err).Msg("error creating cloudflare client")
+			return nil, err
+		}
+		zones, _, err := client.Zones.List(cfc.Context(), &cloudflare.ZoneListParams{})
+		if err != nil {
+			cfc.Log().Error().Err(err).Msg("Zones List error")
+			return nil, err
+		}
+		cfc.Log().Info().Int("zones", len(zones)).Msg("Zones List")
+		return zones, nil
 	})
+}
+
+type zonesItem struct {
+	zones []cloudflare.Zone
+	err   error
+}
+type reqCacher struct {
+	geocacheClient    *gocache.Cache
+	geocacheStore     *gocache_store.GoCacheStore
+	zonesCacheManager *cache.Cache[zonesItem]
+	cfc               types.CFController
+}
+
+func (rc *reqCacher) GetZones(f func() ([]cloudflare.Zone, error)) ([]cloudflare.Zone, error) {
+	zones, err := rc.zonesCacheManager.Get(rc.cfc.Context(), "zones")
 	if err != nil {
-		return nil, err
+		zones, err := f()
+		rc.zonesCacheManager.Set(rc.cfc.Context(), "zones", zonesItem{
+			zones: zones,
+			err:   err,
+		})
 	}
-	zones, _, err := client.Zones.List(cfc.Context(), &cloudflare.ZoneListParams{})
+	return zones.zones, zones.err
+}
+
+/*
+	err := cacheManager.Set(cfc.Context(), "my-key", []byte("my-value"))
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return zones, nil
+
+	value, err := cacheManager.Get(cfc.Context(), "my-key")
+	if err != nil {
+		panic(err)
+	}
+*/
+
+func newCache(cfc types.CFController) types.Cacher {
+	req := reqCacher{
+		cfc: cfc,
+	}
+	req.geocacheClient = gocache.New(2*time.Minute, 3*time.Minute)
+	req.geocacheStore = gocache_store.NewGoCache(req.geocacheClient)
+	req.zonesCacheManager = cache.New[zonesItem](req.geocacheStore)
+
+	return &req
 }
 
 func NewCFController(log *zerolog.Logger) types.CFController {
@@ -48,8 +105,13 @@ func NewCFController(log *zerolog.Logger) types.CFController {
 		// },
 		shutdownFns: make(map[string]func()),
 	}
+	cfc.cacher = newCache(&cfc)
 	cfc.rest = NewRestClients(&cfc)
 	return &cfc
+}
+
+func (cfc *localController) Cache() types.Cacher {
+	return cfc.cacher
 }
 
 func (cfc *localController) Cfg() *types.CFControllerConfig {

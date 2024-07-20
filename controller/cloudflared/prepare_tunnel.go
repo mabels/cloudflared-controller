@@ -224,7 +224,13 @@ func updateCFTunnel(cfc types.CFController, tparam *types.CFTunnelParameterWithI
 			continue
 		}
 		for _, rule := range rules {
-			registerCFDnsEndpoint(cfc, tparam.ID, rule.Hostname)
+			cfc.Log().Info().Str("hostname", rule.Hostname).Msg("Registering dns endpoint-pre")
+			err := registerCFDnsEndpoint(cfc, tparam.ID, rule.Hostname)
+			cfc.Log().Info().Str("hostname", rule.Hostname).Err(err).Msg("Registering dns endpoint-post")
+			if err != nil {
+				cfc.Log().Error().Err(err).Msg("error registering dns endpoint")
+				continue
+			}
 		}
 	}
 	// updateConfigMap state
@@ -266,7 +272,6 @@ func createCFTunnel(cfc types.CFController, tp *types.CFTunnelParameter, ometa *
 }
 
 func validateCFTunnel(cfc types.CFController, tp *types.CFTunnelParameter, cm *corev1.ConfigMap) error {
-	// findCFTunnel
 	tunnels, err := findTunnelFromCF(cfc, tp)
 	if err != nil {
 		cfc.Log().Error().Err(err).Msg("Error finding tunnel")
@@ -283,14 +288,16 @@ func validateCFTunnel(cfc types.CFController, tp *types.CFTunnelParameter, cm *c
 			CFTunnelParameter: *tp,
 			ID:                tunnels[0].ID,
 		}
-		return updateCFTunnel(cfc, &tpwi, cm)
+		err = updateCFTunnel(cfc, &tpwi, cm)
+		return err
 	}
 	tpwi, err := createCFTunnel(cfc, tp, &cm.ObjectMeta)
 	if err != nil {
 		cfc.Log().Error().Err(err).Msg("Error creating tunnel")
 		return err
 	}
-	return updateCFTunnel(cfc, tpwi, cm)
+	err = updateCFTunnel(cfc, tpwi, cm)
+	return err
 }
 
 func deleteCFTunnel(cfc types.CFController, tp *types.CFTunnelParameter) {
@@ -305,7 +312,7 @@ func deleteCFTunnel(cfc types.CFController, tp *types.CFTunnelParameter) {
 			cfc.Log().Error().Err(err).Msg("Can't find CF client")
 			return
 		}
-		err = cfClient.DeleteTunnel(tunnels[0].ID)
+		err = cfClient.DeleteTunnel(tunnels[0].ID, true)
 		if err != nil {
 			cfc.Log().Error().Err(err).Msg("Error deleting tunnel")
 			return
@@ -334,35 +341,27 @@ func ConfigMapHandlerPrepareCloudflared(_cfc types.CFController) func() {
 			cfc.Log().Error().Err(err).Msg("error getting tunnel param")
 			return
 		}
-		cfc := cfc.WithComponent("ConfigMapHandlerPrepareCloudflared", func(c types.CFController) {
-			log := c.Log().With().Str("tunnel", tparam.Name).Logger()
-			c.SetLog(&log)
-		})
-
-		// state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
-		// if !found {
-		// 	cfc.Log().Error().Msg("error getting state")
-		// 	return
-		// }
-		// switch state {
-		// case "ready":
-		// 	cfc.Log().Debug().Msg("ignoring preparing state")
-		// 	return
-		// case "preparing":
-		// default:
-		// 	cfc.Log().Error().Str("state", state).Msg("unknown state")
-		// 	return
-		// }
-
 		switch ev.Type {
 		case watch.Added:
+			cfc := cfc.WithComponent("Added", func(c types.CFController) {
+				log := c.Log().With().Str("tunnel", tparam.Name).Logger()
+				c.SetLog(&log)
+			})
 			validateCFTunnel(cfc, tparam, cm)
 		case watch.Modified:
+			cfc := cfc.WithComponent("Modified", func(c types.CFController) {
+				log := c.Log().With().Str("tunnel", tparam.Name).Logger()
+				c.SetLog(&log)
+			})
 			validateCFTunnel(cfc, tparam, cm)
 		case watch.Deleted:
+			cfc := cfc.WithComponent("Delete", func(c types.CFController) {
+				log := c.Log().With().Str("tunnel", tparam.Name).Logger()
+				c.SetLog(&log)
+			})
 			deleteCFTunnel(cfc, tparam)
 		default:
-			cfc.Log().Error().Str("event", string(ev.Type)).Msg("unknown event type")
+			cfc.Log().Error().Str("tunnel", tparam.Name).Str("event", string(ev.Type)).Msg("unknown event type")
 		}
 	})
 	return func() {
