@@ -143,8 +143,11 @@ func updateConfigMap(_cfc types.CFController, svc *corev1.Service) error {
 				schema = "https"
 				noTLSVerify = true
 			}
-
-			svcUrl := fmt.Sprintf("%s://%s.%s%s", schema, svc.Name, svc.Namespace, urlPort)
+			name := svc.Name + "." + svc.Namespace
+			if svc.Spec.ExternalName != "" {
+				name = svc.Spec.ExternalName
+			}
+			svcUrl := fmt.Sprintf("%s://%s%s", schema, name, urlPort)
 			path := sm.Path
 			cci := mappingCFEndpointMapping{
 				order: sm.Order,

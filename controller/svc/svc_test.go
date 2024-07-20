@@ -511,3 +511,52 @@ func TestSimpleSVC(t *testing.T) {
 			},
 		}}, cf.tunnelConfigMaps.upsertCalls[0].cfcis)
 }
+
+func TestExternalName(t *testing.T) {
+	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	cf := &mockController{
+		log: &_log,
+		cfg: &types.CFControllerConfig{
+			CloudFlare: types.CFControllerCloudflareConfig{
+				TunnelConfigMapNamespace: "what",
+			},
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "what-tech",
+			Namespace: "what",
+			Annotations: map[string]string{
+				"cloudflare.com/tunnel-external-name": "myname.what.tech",
+				"cloudflare.com/tunnel-mapping":       "hass/http/",
+				"cloudflare.com/tunnel-name":          "what.tech",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "www.example.com",
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "hass",
+					Port:       8123,
+					Protocol:   "TCP",
+					TargetPort: intstr.FromString("http"),
+				},
+			},
+		},
+	}
+	err := updateConfigMap(cf, svc)
+	assert.NoError(t, err)
+	assert.Len(t, cf.tunnelConfigMaps.upsertCalls, 1)
+	assert.Len(t, cf.tunnelConfigMaps.upsertCalls[0].cfcis, 1)
+	/*
+		- hostname: ext-hass-io-hh.adviser.com
+		path: /
+		service: http://home-assistant.default:8123
+		originRequest:
+		  noTLSVerify: false
+		  httpHostHeader: home-assistant
+	*/
+	assert.Equal(t, "/", cf.tunnelConfigMaps.upsertCalls[0].cfcis[0].Path)
+	assert.Equal(t, "http://www.example.com:8123", cf.tunnelConfigMaps.upsertCalls[0].cfcis[0].Service)
+}
