@@ -16,6 +16,10 @@ function resolve(obj, dict) {
     for (const attr in obj) {
       delete obj[attr]["description"];
       delete obj[attr]["title"];
+
+      if ("x-sensitive" === attr || "readOnly" === attr) {
+        delete obj[attr];
+      }
       // delete obj[attr]['type']
       resolve(obj[attr], dict);
     }
