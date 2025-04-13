@@ -38,20 +38,7 @@
                         "items": {
                           "type": "object",
                           "properties": {
-                            "email": {
-                              "properties": {
-                                "email": {
-                                  "example": "test@example.com",
-                                  "format": "email",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email"
-                              ],
-                              "type": "object"
-                            },
-                            "email_list": {
+                            "group": {
                               "properties": {
                                 "id": {
                                   "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
@@ -60,6 +47,103 @@
                               },
                               "required": [
                                 "id"
+                              ],
+                              "type": "object"
+                            },
+                            "any_valid_service_token": {
+                              "example": {},
+                              "type": "object",
+                              "x-stainless-empty-object": true
+                            },
+                            "auth_context": {
+                              "properties": {
+                                "ac_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "identity_provider_id",
+                                "ac_id"
+                              ],
+                              "type": "object"
+                            },
+                            "auth_method": {
+                              "properties": {
+                                "auth_method": {
+                                  "example": "mfa",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "auth_method"
+                              ],
+                              "type": "object"
+                            },
+                            "azureAD": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "certificate": {
+                              "example": {},
+                              "type": "object",
+                              "x-stainless-empty-object": true
+                            },
+                            "common_name": {
+                              "properties": {
+                                "common_name": {
+                                  "example": "james@example.com",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "common_name"
+                              ],
+                              "type": "object"
+                            },
+                            "geo": {
+                              "properties": {
+                                "country_code": {
+                                  "example": "US",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "country_code"
+                              ],
+                              "type": "object"
+                            },
+                            "device_posture": {
+                              "properties": {
+                                "integration_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "integration_uid"
                               ],
                               "type": "object"
                             },
@@ -75,150 +159,35 @@
                               ],
                               "type": "object"
                             },
+                            "email_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "email": {
+                              "properties": {
+                                "email": {
+                                  "example": "test@example.com",
+                                  "format": "email",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "email"
+                              ],
+                              "type": "object"
+                            },
                             "everyone": {
                               "example": {},
-                              "type": "object"
-                            },
-                            "ip": {
-                              "properties": {
-                                "ip": {
-                                  "example": "2400:cb00:21:10a::/64",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "ip"
-                              ],
-                              "type": "object"
-                            },
-                            "ip_list": {
-                              "properties": {
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            "certificate": {
-                              "example": {},
-                              "type": "object"
-                            },
-                            "group": {
-                              "properties": {
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            "azureAD": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "github-organization": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "example": "cloudflare",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "name",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "gsuite": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "okta": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "saml": {
-                              "properties": {
-                                "attribute_name": {
-                                  "example": "group",
-                                  "type": "string"
-                                },
-                                "attribute_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "attribute_name",
-                                "attribute_value"
-                              ],
-                              "type": "object"
-                            },
-                            "service_token": {
-                              "properties": {
-                                "token_id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "token_id"
-                              ],
-                              "type": "object"
-                            },
-                            "any_valid_service_token": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "x-stainless-empty-object": true
                             },
                             "external_evaluation": {
                               "properties": {
@@ -237,39 +206,128 @@
                               ],
                               "type": "object"
                             },
-                            "geo": {
+                            "github-organization": {
                               "properties": {
-                                "country_code": {
-                                  "example": "US",
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "example": "cloudflare",
+                                  "type": "string"
+                                },
+                                "team": {
+                                  "example": "api-team",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "country_code"
+                                "name",
+                                "identity_provider_id"
                               ],
                               "type": "object"
                             },
-                            "auth_method": {
+                            "gsuite": {
                               "properties": {
-                                "auth_method": {
-                                  "example": "mfa",
+                                "email": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "auth_method"
+                                "email",
+                                "identity_provider_id"
                               ],
                               "type": "object"
                             },
-                            "device_posture": {
+                            "login_method": {
                               "properties": {
-                                "integration_uid": {
+                                "id": {
                                   "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "integration_uid"
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "ip_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "ip": {
+                              "properties": {
+                                "ip": {
+                                  "example": "2400:cb00:21:10a::/64",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "ip"
+                              ],
+                              "type": "object"
+                            },
+                            "okta": {
+                              "properties": {
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "example": "devs",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "saml": {
+                              "properties": {
+                                "attribute_name": {
+                                  "example": "group",
+                                  "type": "string"
+                                },
+                                "attribute_value": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "attribute_name",
+                                "attribute_value",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "service_token": {
+                              "properties": {
+                                "token_id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "token_id"
                               ],
                               "type": "object"
                             }
@@ -277,32 +335,27 @@
                           "oneOf": [
                             {
                               "required": [
-                                "email"
+                                "group"
                               ]
                             },
                             {
                               "required": [
-                                "email_list"
+                                "any_valid_service_token"
                               ]
                             },
                             {
                               "required": [
-                                "email_domain"
+                                "auth_context"
                               ]
                             },
                             {
                               "required": [
-                                "everyone"
+                                "auth_method"
                               ]
                             },
                             {
                               "required": [
-                                "ip"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "ip_list"
+                                "azureAD"
                               ]
                             },
                             {
@@ -312,12 +365,42 @@
                             },
                             {
                               "required": [
-                                "group"
+                                "common_name"
                               ]
                             },
                             {
                               "required": [
-                                "azureAD"
+                                "geo"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "device_posture"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_domain"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_list"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "everyone"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "external_evaluation"
                               ]
                             },
                             {
@@ -328,6 +411,21 @@
                             {
                               "required": [
                                 "gsuite"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "login_method"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "ip_list"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "ip"
                               ]
                             },
                             {
@@ -343,31 +441,6 @@
                             {
                               "required": [
                                 "service_token"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "any_valid_service_token"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "external_evaluation"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "geo"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "auth_method"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "device_posture"
                               ]
                             }
                           ]
@@ -378,20 +451,7 @@
                         "items": {
                           "type": "object",
                           "properties": {
-                            "email": {
-                              "properties": {
-                                "email": {
-                                  "example": "test@example.com",
-                                  "format": "email",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email"
-                              ],
-                              "type": "object"
-                            },
-                            "email_list": {
+                            "group": {
                               "properties": {
                                 "id": {
                                   "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
@@ -400,6 +460,103 @@
                               },
                               "required": [
                                 "id"
+                              ],
+                              "type": "object"
+                            },
+                            "any_valid_service_token": {
+                              "example": {},
+                              "type": "object",
+                              "x-stainless-empty-object": true
+                            },
+                            "auth_context": {
+                              "properties": {
+                                "ac_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "identity_provider_id",
+                                "ac_id"
+                              ],
+                              "type": "object"
+                            },
+                            "auth_method": {
+                              "properties": {
+                                "auth_method": {
+                                  "example": "mfa",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "auth_method"
+                              ],
+                              "type": "object"
+                            },
+                            "azureAD": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "certificate": {
+                              "example": {},
+                              "type": "object",
+                              "x-stainless-empty-object": true
+                            },
+                            "common_name": {
+                              "properties": {
+                                "common_name": {
+                                  "example": "james@example.com",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "common_name"
+                              ],
+                              "type": "object"
+                            },
+                            "geo": {
+                              "properties": {
+                                "country_code": {
+                                  "example": "US",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "country_code"
+                              ],
+                              "type": "object"
+                            },
+                            "device_posture": {
+                              "properties": {
+                                "integration_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "integration_uid"
                               ],
                               "type": "object"
                             },
@@ -415,150 +572,35 @@
                               ],
                               "type": "object"
                             },
+                            "email_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "email": {
+                              "properties": {
+                                "email": {
+                                  "example": "test@example.com",
+                                  "format": "email",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "email"
+                              ],
+                              "type": "object"
+                            },
                             "everyone": {
                               "example": {},
-                              "type": "object"
-                            },
-                            "ip": {
-                              "properties": {
-                                "ip": {
-                                  "example": "2400:cb00:21:10a::/64",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "ip"
-                              ],
-                              "type": "object"
-                            },
-                            "ip_list": {
-                              "properties": {
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            "certificate": {
-                              "example": {},
-                              "type": "object"
-                            },
-                            "group": {
-                              "properties": {
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            "azureAD": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "github-organization": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "example": "cloudflare",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "name",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "gsuite": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "okta": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "saml": {
-                              "properties": {
-                                "attribute_name": {
-                                  "example": "group",
-                                  "type": "string"
-                                },
-                                "attribute_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "attribute_name",
-                                "attribute_value"
-                              ],
-                              "type": "object"
-                            },
-                            "service_token": {
-                              "properties": {
-                                "token_id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "token_id"
-                              ],
-                              "type": "object"
-                            },
-                            "any_valid_service_token": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "x-stainless-empty-object": true
                             },
                             "external_evaluation": {
                               "properties": {
@@ -577,39 +619,128 @@
                               ],
                               "type": "object"
                             },
-                            "geo": {
+                            "github-organization": {
                               "properties": {
-                                "country_code": {
-                                  "example": "US",
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "example": "cloudflare",
+                                  "type": "string"
+                                },
+                                "team": {
+                                  "example": "api-team",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "country_code"
+                                "name",
+                                "identity_provider_id"
                               ],
                               "type": "object"
                             },
-                            "auth_method": {
+                            "gsuite": {
                               "properties": {
-                                "auth_method": {
-                                  "example": "mfa",
+                                "email": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "auth_method"
+                                "email",
+                                "identity_provider_id"
                               ],
                               "type": "object"
                             },
-                            "device_posture": {
+                            "login_method": {
                               "properties": {
-                                "integration_uid": {
+                                "id": {
                                   "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "integration_uid"
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "ip_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "ip": {
+                              "properties": {
+                                "ip": {
+                                  "example": "2400:cb00:21:10a::/64",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "ip"
+                              ],
+                              "type": "object"
+                            },
+                            "okta": {
+                              "properties": {
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "example": "devs",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "saml": {
+                              "properties": {
+                                "attribute_name": {
+                                  "example": "group",
+                                  "type": "string"
+                                },
+                                "attribute_value": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "attribute_name",
+                                "attribute_value",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "service_token": {
+                              "properties": {
+                                "token_id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "token_id"
                               ],
                               "type": "object"
                             }
@@ -617,32 +748,27 @@
                           "oneOf": [
                             {
                               "required": [
-                                "email"
+                                "group"
                               ]
                             },
                             {
                               "required": [
-                                "email_list"
+                                "any_valid_service_token"
                               ]
                             },
                             {
                               "required": [
-                                "email_domain"
+                                "auth_context"
                               ]
                             },
                             {
                               "required": [
-                                "everyone"
+                                "auth_method"
                               ]
                             },
                             {
                               "required": [
-                                "ip"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "ip_list"
+                                "azureAD"
                               ]
                             },
                             {
@@ -652,12 +778,42 @@
                             },
                             {
                               "required": [
-                                "group"
+                                "common_name"
                               ]
                             },
                             {
                               "required": [
-                                "azureAD"
+                                "geo"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "device_posture"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_domain"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_list"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "everyone"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "external_evaluation"
                               ]
                             },
                             {
@@ -668,6 +824,21 @@
                             {
                               "required": [
                                 "gsuite"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "login_method"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "ip_list"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "ip"
                               ]
                             },
                             {
@@ -683,31 +854,6 @@
                             {
                               "required": [
                                 "service_token"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "any_valid_service_token"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "external_evaluation"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "geo"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "auth_method"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "device_posture"
                               ]
                             }
                           ]
@@ -727,20 +873,7 @@
                         "items": {
                           "type": "object",
                           "properties": {
-                            "email": {
-                              "properties": {
-                                "email": {
-                                  "example": "test@example.com",
-                                  "format": "email",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email"
-                              ],
-                              "type": "object"
-                            },
-                            "email_list": {
+                            "group": {
                               "properties": {
                                 "id": {
                                   "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
@@ -749,6 +882,103 @@
                               },
                               "required": [
                                 "id"
+                              ],
+                              "type": "object"
+                            },
+                            "any_valid_service_token": {
+                              "example": {},
+                              "type": "object",
+                              "x-stainless-empty-object": true
+                            },
+                            "auth_context": {
+                              "properties": {
+                                "ac_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "identity_provider_id",
+                                "ac_id"
+                              ],
+                              "type": "object"
+                            },
+                            "auth_method": {
+                              "properties": {
+                                "auth_method": {
+                                  "example": "mfa",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "auth_method"
+                              ],
+                              "type": "object"
+                            },
+                            "azureAD": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "certificate": {
+                              "example": {},
+                              "type": "object",
+                              "x-stainless-empty-object": true
+                            },
+                            "common_name": {
+                              "properties": {
+                                "common_name": {
+                                  "example": "james@example.com",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "common_name"
+                              ],
+                              "type": "object"
+                            },
+                            "geo": {
+                              "properties": {
+                                "country_code": {
+                                  "example": "US",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "country_code"
+                              ],
+                              "type": "object"
+                            },
+                            "device_posture": {
+                              "properties": {
+                                "integration_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "integration_uid"
                               ],
                               "type": "object"
                             },
@@ -764,150 +994,35 @@
                               ],
                               "type": "object"
                             },
+                            "email_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "email": {
+                              "properties": {
+                                "email": {
+                                  "example": "test@example.com",
+                                  "format": "email",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "email"
+                              ],
+                              "type": "object"
+                            },
                             "everyone": {
                               "example": {},
-                              "type": "object"
-                            },
-                            "ip": {
-                              "properties": {
-                                "ip": {
-                                  "example": "2400:cb00:21:10a::/64",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "ip"
-                              ],
-                              "type": "object"
-                            },
-                            "ip_list": {
-                              "properties": {
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            "certificate": {
-                              "example": {},
-                              "type": "object"
-                            },
-                            "group": {
-                              "properties": {
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            "azureAD": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "github-organization": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "example": "cloudflare",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "name",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "gsuite": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "okta": {
-                              "properties": {
-                                "connection_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
-                                },
-                                "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "email",
-                                "connection_id"
-                              ],
-                              "type": "object"
-                            },
-                            "saml": {
-                              "properties": {
-                                "attribute_name": {
-                                  "example": "group",
-                                  "type": "string"
-                                },
-                                "attribute_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "attribute_name",
-                                "attribute_value"
-                              ],
-                              "type": "object"
-                            },
-                            "service_token": {
-                              "properties": {
-                                "token_id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "token_id"
-                              ],
-                              "type": "object"
-                            },
-                            "any_valid_service_token": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "x-stainless-empty-object": true
                             },
                             "external_evaluation": {
                               "properties": {
@@ -926,39 +1041,128 @@
                               ],
                               "type": "object"
                             },
-                            "geo": {
+                            "github-organization": {
                               "properties": {
-                                "country_code": {
-                                  "example": "US",
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "example": "cloudflare",
+                                  "type": "string"
+                                },
+                                "team": {
+                                  "example": "api-team",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "country_code"
+                                "name",
+                                "identity_provider_id"
                               ],
                               "type": "object"
                             },
-                            "auth_method": {
+                            "gsuite": {
                               "properties": {
-                                "auth_method": {
-                                  "example": "mfa",
+                                "email": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "auth_method"
+                                "email",
+                                "identity_provider_id"
                               ],
                               "type": "object"
                             },
-                            "device_posture": {
+                            "login_method": {
                               "properties": {
-                                "integration_uid": {
+                                "id": {
                                   "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
                                   "type": "string"
                                 }
                               },
                               "required": [
-                                "integration_uid"
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "ip_list": {
+                              "properties": {
+                                "id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "ip": {
+                              "properties": {
+                                "ip": {
+                                  "example": "2400:cb00:21:10a::/64",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "ip"
+                              ],
+                              "type": "object"
+                            },
+                            "okta": {
+                              "properties": {
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "example": "devs",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "saml": {
+                              "properties": {
+                                "attribute_name": {
+                                  "example": "group",
+                                  "type": "string"
+                                },
+                                "attribute_value": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "attribute_name",
+                                "attribute_value",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
+                            "service_token": {
+                              "properties": {
+                                "token_id": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "token_id"
                               ],
                               "type": "object"
                             }
@@ -966,32 +1170,27 @@
                           "oneOf": [
                             {
                               "required": [
-                                "email"
+                                "group"
                               ]
                             },
                             {
                               "required": [
-                                "email_list"
+                                "any_valid_service_token"
                               ]
                             },
                             {
                               "required": [
-                                "email_domain"
+                                "auth_context"
                               ]
                             },
                             {
                               "required": [
-                                "everyone"
+                                "auth_method"
                               ]
                             },
                             {
                               "required": [
-                                "ip"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "ip_list"
+                                "azureAD"
                               ]
                             },
                             {
@@ -1001,12 +1200,42 @@
                             },
                             {
                               "required": [
-                                "group"
+                                "common_name"
                               ]
                             },
                             {
                               "required": [
-                                "azureAD"
+                                "geo"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "device_posture"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_domain"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email_list"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "email"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "everyone"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "external_evaluation"
                               ]
                             },
                             {
@@ -1017,6 +1246,21 @@
                             {
                               "required": [
                                 "gsuite"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "login_method"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "ip_list"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "ip"
                               ]
                             },
                             {
@@ -1032,31 +1276,6 @@
                             {
                               "required": [
                                 "service_token"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "any_valid_service_token"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "external_evaluation"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "geo"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "auth_method"
-                              ]
-                            },
-                            {
-                              "required": [
-                                "device_posture"
                               ]
                             }
                           ]
@@ -1164,7 +1383,7 @@
                     "properties": {
                       "config_src": {
                         "default": "local",
-                        "description": "Indicates if this is a locally or remotely configured tunnel. If `local`, manage the tunnel using a YAML file on the origin machine. If `cloudflare`, manage the tunnel on the Zero Trust dashboard or using the [Cloudflare Tunnel configuration](https://api.cloudflare.com/#cloudflare-tunnel-configuration-properties) endpoint.",
+                        "description": "Indicates if this is a locally or remotely configured tunnel. If `local`, manage the tunnel using a YAML file on the origin machine. If `cloudflare`, manage the tunnel on the Zero Trust dashboard.",
                         "enum": [
                           "local",
                           "cloudflare"
@@ -1180,7 +1399,8 @@
                       "tunnel_secret": {
                         "description": "Sets the password required to run a locally-managed tunnel. Must be at least 32 bytes and encoded as a base64 string.",
                         "example": "AQIDBAUGBwgBAgMEBQYHCAECAwQFBgcIAQIDBAUGBwg=",
-                        "type": "string"
+                        "type": "string",
+                        "x-sensitive": true
                       }
                     },
                     "required": [
@@ -1308,7 +1528,7 @@
                                           "type": "boolean"
                                         },
                                         "teamName": {
-                                          "default": "Your Zero Trust authentication domain.",
+                                          "default": "Your Zero Trust organization name.",
                                           "type": "string"
                                         }
                                       },
@@ -1386,6 +1606,7 @@
                               ],
                               "type": "object"
                             },
+                            "minItems": 1,
                             "type": "array"
                           },
                           "originRequest": {
@@ -1404,7 +1625,7 @@
                                     "type": "boolean"
                                   },
                                   "teamName": {
-                                    "default": "Your Zero Trust authentication domain.",
+                                    "default": "Your Zero Trust organization name.",
                                     "type": "string"
                                   }
                                 },
@@ -1473,6 +1694,7 @@
                                 "type": "boolean"
                               }
                             },
+                            "readOnly": true,
                             "type": "object"
                           }
                         },
