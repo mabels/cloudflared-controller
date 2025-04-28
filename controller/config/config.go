@@ -76,6 +76,10 @@ func AnnotationCloudflareTunnelExternalName() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-external-name")
 }
 
+func AnnotationCloudflareTunnelHostHeader() string {
+	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-host-header")
+}
+
 // func AnnotationCloudflareTunnelState() string {
 // 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-state")
 // }

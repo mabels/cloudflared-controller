@@ -17,7 +17,7 @@ function resolve(obj, dict) {
       delete obj[attr]["description"];
       delete obj[attr]["title"];
 
-      if ("x-sensitive" === attr || "readOnly" === attr) {
+      if (attr.startsWith('x-') || "readOnly" === attr) {
         delete obj[attr];
       }
       // delete obj[attr]['type']

@@ -77,6 +77,10 @@ func UpsertConfigMap(cfc types.CFController, tparam *types.CFTunnelParameter, cm
 		for k, v := range cm.ObjectMeta.Annotations {
 			toUpdate.ObjectMeta.Annotations[k] = v
 		}
+		fmt.Printf("cm: %v:%v=%s\n", toUpdate.Data, cm.Data, tparam.K8SConfigMapName().Name)
+		if toUpdate.Data == nil {
+			toUpdate.Data = make(map[string]string)
+		}
 		for k, v := range cm.Data {
 			toUpdate.Data[k] = v
 		}

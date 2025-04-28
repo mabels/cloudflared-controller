@@ -52,8 +52,7 @@
                             },
                             "any_valid_service_token": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "auth_context": {
                               "properties": {
@@ -108,8 +107,7 @@
                             },
                             "certificate": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "common_name": {
                               "properties": {
@@ -186,8 +184,7 @@
                             },
                             "everyone": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "external_evaluation": {
                               "properties": {
@@ -465,8 +462,7 @@
                             },
                             "any_valid_service_token": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "auth_context": {
                               "properties": {
@@ -521,8 +517,7 @@
                             },
                             "certificate": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "common_name": {
                               "properties": {
@@ -599,8 +594,7 @@
                             },
                             "everyone": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "external_evaluation": {
                               "properties": {
@@ -887,8 +881,7 @@
                             },
                             "any_valid_service_token": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "auth_context": {
                               "properties": {
@@ -943,8 +936,7 @@
                             },
                             "certificate": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "common_name": {
                               "properties": {
@@ -1021,8 +1013,7 @@
                             },
                             "everyone": {
                               "example": {},
-                              "type": "object",
-                              "x-stainless-empty-object": true
+                              "type": "object"
                             },
                             "external_evaluation": {
                               "properties": {
