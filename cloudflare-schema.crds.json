@@ -316,6 +316,28 @@
                               ],
                               "type": "object"
                             },
+                            "oidc": {
+                              "properties": {
+                                "claim_name": {
+                                  "example": "group",
+                                  "type": "string"
+                                },
+                                "claim_value": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "claim_name",
+                                "claim_value",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
                             "service_token": {
                               "properties": {
                                 "token_id": {
@@ -325,6 +347,18 @@
                               },
                               "required": [
                                 "token_id"
+                              ],
+                              "type": "object"
+                            },
+                            "linked_app_token": {
+                              "properties": {
+                                "app_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "app_uid"
                               ],
                               "type": "object"
                             }
@@ -437,7 +471,17 @@
                             },
                             {
                               "required": [
+                                "oidc"
+                              ]
+                            },
+                            {
+                              "required": [
                                 "service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "linked_app_token"
                               ]
                             }
                           ]
@@ -726,6 +770,28 @@
                               ],
                               "type": "object"
                             },
+                            "oidc": {
+                              "properties": {
+                                "claim_name": {
+                                  "example": "group",
+                                  "type": "string"
+                                },
+                                "claim_value": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "claim_name",
+                                "claim_value",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
                             "service_token": {
                               "properties": {
                                 "token_id": {
@@ -735,6 +801,18 @@
                               },
                               "required": [
                                 "token_id"
+                              ],
+                              "type": "object"
+                            },
+                            "linked_app_token": {
+                              "properties": {
+                                "app_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "app_uid"
                               ],
                               "type": "object"
                             }
@@ -847,7 +925,17 @@
                             },
                             {
                               "required": [
+                                "oidc"
+                              ]
+                            },
+                            {
+                              "required": [
                                 "service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "linked_app_token"
                               ]
                             }
                           ]
@@ -1145,6 +1233,28 @@
                               ],
                               "type": "object"
                             },
+                            "oidc": {
+                              "properties": {
+                                "claim_name": {
+                                  "example": "group",
+                                  "type": "string"
+                                },
+                                "claim_value": {
+                                  "example": "devs@cloudflare.com",
+                                  "type": "string"
+                                },
+                                "identity_provider_id": {
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "claim_name",
+                                "claim_value",
+                                "identity_provider_id"
+                              ],
+                              "type": "object"
+                            },
                             "service_token": {
                               "properties": {
                                 "token_id": {
@@ -1154,6 +1264,18 @@
                               },
                               "required": [
                                 "token_id"
+                              ],
+                              "type": "object"
+                            },
+                            "linked_app_token": {
+                              "properties": {
+                                "app_uid": {
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "app_uid"
                               ],
                               "type": "object"
                             }
@@ -1266,7 +1388,17 @@
                             },
                             {
                               "required": [
+                                "oidc"
+                              ]
+                            },
+                            {
+                              "required": [
                                 "service_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "linked_app_token"
                               ]
                             }
                           ]
@@ -1514,11 +1646,11 @@
                                           "type": "array"
                                         },
                                         "required": {
-                                          "default": false,
+                                          "example": false,
                                           "type": "boolean"
                                         },
                                         "teamName": {
-                                          "default": "Your Zero Trust organization name.",
+                                          "example": "zero-trust-organization-name",
                                           "type": "string"
                                         }
                                       },
@@ -1529,11 +1661,10 @@
                                       "type": "object"
                                     },
                                     "caPool": {
-                                      "default": "",
                                       "type": "string"
                                     },
                                     "connectTimeout": {
-                                      "default": 10,
+                                      "example": 10,
                                       "type": "integer"
                                     },
                                     "disableChunkedEncoding": {
@@ -1546,42 +1677,39 @@
                                       "type": "string"
                                     },
                                     "keepAliveConnections": {
-                                      "default": 100,
+                                      "example": 100,
                                       "type": "integer"
                                     },
                                     "keepAliveTimeout": {
-                                      "default": 90,
+                                      "example": 90,
                                       "type": "integer"
                                     },
                                     "noHappyEyeballs": {
-                                      "default": false,
+                                      "example": false,
                                       "type": "boolean"
                                     },
                                     "noTLSVerify": {
-                                      "default": false,
+                                      "example": false,
                                       "type": "boolean"
                                     },
                                     "originServerName": {
-                                      "default": "",
                                       "type": "string"
                                     },
                                     "proxyType": {
-                                      "default": "",
                                       "type": "string"
                                     },
                                     "tcpKeepAlive": {
-                                      "default": 30,
+                                      "example": 30,
                                       "type": "integer"
                                     },
                                     "tlsTimeout": {
-                                      "default": 10,
+                                      "example": 10,
                                       "type": "integer"
                                     }
                                   },
                                   "type": "object"
                                 },
                                 "path": {
-                                  "default": "",
                                   "example": "subpath",
                                   "type": "string"
                                 },
@@ -1611,11 +1739,11 @@
                                     "type": "array"
                                   },
                                   "required": {
-                                    "default": false,
+                                    "example": false,
                                     "type": "boolean"
                                   },
                                   "teamName": {
-                                    "default": "Your Zero Trust organization name.",
+                                    "example": "zero-trust-organization-name",
                                     "type": "string"
                                   }
                                 },
@@ -1626,11 +1754,10 @@
                                 "type": "object"
                               },
                               "caPool": {
-                                "default": "",
                                 "type": "string"
                               },
                               "connectTimeout": {
-                                "default": 10,
+                                "example": 10,
                                 "type": "integer"
                               },
                               "disableChunkedEncoding": {
@@ -1643,35 +1770,33 @@
                                 "type": "string"
                               },
                               "keepAliveConnections": {
-                                "default": 100,
+                                "example": 100,
                                 "type": "integer"
                               },
                               "keepAliveTimeout": {
-                                "default": 90,
+                                "example": 90,
                                 "type": "integer"
                               },
                               "noHappyEyeballs": {
-                                "default": false,
+                                "example": false,
                                 "type": "boolean"
                               },
                               "noTLSVerify": {
-                                "default": false,
+                                "example": false,
                                 "type": "boolean"
                               },
                               "originServerName": {
-                                "default": "",
                                 "type": "string"
                               },
                               "proxyType": {
-                                "default": "",
                                 "type": "string"
                               },
                               "tcpKeepAlive": {
-                                "default": 30,
+                                "example": 30,
                                 "type": "integer"
                               },
                               "tlsTimeout": {
-                                "default": 10,
+                                "example": 10,
                                 "type": "integer"
                               }
                             },
@@ -1680,7 +1805,6 @@
                           "warp-routing": {
                             "properties": {
                               "enabled": {
-                                "default": false,
                                 "type": "boolean"
                               }
                             },
