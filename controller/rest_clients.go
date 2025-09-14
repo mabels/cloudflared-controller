@@ -91,7 +91,9 @@ func (rc *RestClients) GetCFClientForDomain(domain string) (*cfapi.RESTClient, e
 			rc.cfc.Log().Error().Err(err).Msg("Failed to get zones")
 			return nil, err
 		}
+		zonestrs := []string{}
 		for _, zone := range zones {
+			zonestrs = append(zonestrs, zone.Name)
 			rc.cfc.Log().Debug().Str("zone", zone.Name).Msg("client for zone")
 			rc.cfs[zone.Name], err = cfapi.NewRESTClient(
 				rc.cfc.Cfg().CloudFlare.ApiUrl,
@@ -101,11 +103,22 @@ func (rc *RestClients) GetCFClientForDomain(domain string) (*cfapi.RESTClient, e
 				fmt.Sprintf("cloudflared-controller(%s)", zone.Name),
 				rc.cfc.Log())
 			if err != nil {
-				rc.cfc.Log().Fatal().Err(err).Msg("Failed to create cloudflare client")
+				rc.cfc.Log().Fatal().Err(err).
+					Str("zone", zone.Name).
+					Str("zoneId", zone.ID).
+					Str("apiUrl", rc.cfc.Cfg().CloudFlare.ApiUrl).
+					Str("account", rc.cfc.Cfg().CloudFlare.AccountId).
+					Str("apiToken", rc.cfc.Cfg().CloudFlare.ApiToken).
+					Msg("Failed to create cloudflare client")
 			}
 		}
 		rcl, found = rc.cfs[domain]
 		if !found {
+			rc.cfc.Log().Error().
+				Str("domain", domain).
+				Str("apiToken", rc.cfc.Cfg().CloudFlare.ApiToken).
+				Strs("zones", zonestrs).
+				Msg("domain not found")
 			return nil, fmt.Errorf("domain %s not found", domain)
 		}
 	}

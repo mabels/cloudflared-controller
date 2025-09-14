@@ -3,10 +3,12 @@ package controller
 import (
 	"context"
 
-	"github.com/cloudflare/cloudflare-go"
+	"github.com/cloudflare/cloudflare-go/v3"
+	"github.com/cloudflare/cloudflare-go/v3/option"
+	"github.com/cloudflare/cloudflare-go/v3/zones"
+
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/types"
-	"github.com/mabels/cloudflared-controller/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -21,20 +23,34 @@ type localController struct {
 	k8sData     *types.K8sData
 }
 
-func getZones(cfc types.CFController) ([]cloudflare.Zone, error) {
-	client, err := cloudflare.NewExperimental(&cloudflare.ClientParams{
-		Token:  cfc.Cfg().CloudFlare.ApiToken,
-		Logger: utils.NewLeveledLogger(cfc.Log()),
-		// Debug:  true,
-	})
-	if err != nil {
-		return nil, err
+func getZones(cfc types.CFController) ([]zones.Zone, error) {
+	client := cloudflare.NewClient(
+		option.WithAPIToken(cfc.Cfg().CloudFlare.ApiToken),
+	)
+
+	// cloudflare.New(&cloudflare.ClientParams{
+	// 	Token:  cfc.Cfg().CloudFlare.ApiToken,
+	// 	Logger: utils.NewLeveledLogger(cfc.Log()),
+	// 	// Debug:  true,
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+	zoneLst := []zones.Zone{}
+	page := 0
+
+	for {
+		pages, err := client.Zones.List(cfc.Context(), zones.ZoneListParams{})
+		if err != nil {
+			return nil, err
+		}
+		zoneLst = append(zoneLst, pages.Result...)
+		if len(pages.Result) == 0 {
+			break
+		}
+		page++
 	}
-	zones, _, err := client.Zones.List(cfc.Context(), &cloudflare.ZoneListParams{})
-	if err != nil {
-		return nil, err
-	}
-	return zones, nil
+	return zoneLst, nil
 }
 
 func NewCFController(log *zerolog.Logger) types.CFController {
