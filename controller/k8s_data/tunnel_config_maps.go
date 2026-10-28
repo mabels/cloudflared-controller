@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sync"
 
 	"github.com/mabels/cloudflared-controller/controller/config"
@@ -92,7 +93,16 @@ type tunnelConfigMaps struct {
 
 // StartTunnelConfigMaps watches the configmaps labeled for this controller.
 func StartTunnelConfigMaps(cfc types.CFController) (types.TunnelConfigMaps, error) {
-	inf := informer.New[*corev1.ConfigMap](cfc,
+	// the controller writes its tunnel configmaps into TunnelConfigMapNamespace;
+	// when the controller is scoped to preset namespaces make sure that one is
+	// watched too, otherwise its own configmap events would never arrive
+	namespaces := cfc.Cfg().PresetNamespaces
+	if len(namespaces) > 0 {
+		if cmNs := cfc.Cfg().CloudFlare.TunnelConfigMapNamespace; cmNs != "" && !slices.Contains(namespaces, cmNs) {
+			namespaces = append(append([]string{}, namespaces...), cmNs)
+		}
+	}
+	inf := informer.NewForNamespaces[*corev1.ConfigMap](cfc, namespaces,
 		func(f informers.SharedInformerFactory) cache.SharedIndexInformer {
 			return f.Core().V1().ConfigMaps().Informer()
 		},
@@ -130,6 +140,10 @@ func (tcm *tunnelConfigMaps) UpsertConfigMap(cfc types.CFController, tparam *typ
 		annos[k] = v
 	}
 	annos[config.AnnotationCloudflareTunnelK8sSecret()] = tparam.K8SSecretName().FQDN
+	// persist the tunnel name so the configmap handler can recover it; for an
+	// ingress with class "cloudflared" and no tunnel-name annotation the name
+	// is inferred and would otherwise be lost (namespace/name keeps it exact)
+	annos[config.AnnotationCloudflareTunnelName()] = fmt.Sprintf("%s/%s", tparam.Namespace, tparam.Name)
 
 	delete(annos, config.AnnotationCloudflareTunnelExternalName())
 	delete(annos, config.AnnotationCloudflareTunnelK8sConfigMap())

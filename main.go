@@ -35,11 +35,18 @@ var Version = "dev"
 func runLeader(cfc types.CFController, ctx context.Context) {
 	unreg := cloudflared.ConfigMapHandlerPrepareCloudflared(cfc)
 	defer unreg()
+	// if a watcher cannot start (e.g. the cache never syncs) we must not keep
+	// holding the lease while doing nothing: shut down so the lease is released
+	// and the pod restarts cleanly to try again.
 	if err := svc.Start(cfc, ctx); err != nil {
-		cfc.Log().Error().Err(err).Msg("Failed to start service watcher")
+		cfc.Log().Error().Err(err).Msg("Failed to start service watcher, giving up leadership")
+		cfc.Shutdown()
+		return
 	}
 	if err := ingress.Start(cfc, ctx); err != nil {
-		cfc.Log().Error().Err(err).Msg("Failed to start ingress watcher")
+		cfc.Log().Error().Err(err).Msg("Failed to start ingress watcher, giving up leadership")
+		cfc.Shutdown()
+		return
 	}
 	<-ctx.Done()
 }
@@ -84,8 +91,15 @@ func main() {
 	go func() {
 		sig := <-c
 		cfc.Log().Info().Str("signal", sig.String()).Msg("Shutting down")
+		// Shutdown cancels the root context; leaderelection runs with
+		// ReleaseOnCancel, so this lets it release the lease before the process
+		// exits (main returns once the leader loop unwinds). Keep a safety net
+		// in case something hangs during shutdown.
+		time.AfterFunc(cfc.Cfg().Leader.RenewDeadline+5*time.Second, func() {
+			cfc.Log().Warn().Msg("Shutdown timed out, forcing exit")
+			os.Exit(130)
+		})
 		cfc.Shutdown()
-		os.Exit(130)
 	}()
 
 	config, err := clientcmd.BuildConfigFromFlags("", cfc.Cfg().KubeConfigFile)
@@ -130,6 +144,9 @@ func main() {
 				cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msgf("new leader is %s", current_id)
 			},
 		})
+		if cfc.Context().Err() != nil {
+			break
+		}
 		time.Sleep(time.Second * 5)
 		cfc.Log().Info().Msg("Restarting leader selection")
 	}

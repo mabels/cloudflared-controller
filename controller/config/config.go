@@ -111,7 +111,7 @@ func CfLabels(labels map[string]string, cfc types.CFController) map[string]strin
 		ret[k] = v
 	}
 	v := reSanitzeNice.ReplaceAllString(cfc.Cfg().Version, "-")
-	if !("a" <= strings.ToLower(string(v[0])) && strings.ToLower(string(v[0])) <= "z") {
+	if len(v) == 0 || !("a" <= strings.ToLower(string(v[0])) && strings.ToLower(string(v[0])) <= "z") {
 		v = fmt.Sprintf("v%s", v)
 	}
 	ret[LabelCloudflaredControllerVersion] = v

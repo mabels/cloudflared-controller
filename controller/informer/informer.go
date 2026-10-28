@@ -20,7 +20,13 @@ type Informer[T runtime.Object] struct {
 }
 
 func New[T runtime.Object](cfc types.CFController, pick func(informers.SharedInformerFactory) cache.SharedIndexInformer, opts ...informers.SharedInformerOption) *Informer[T] {
-	namespaces := cfc.Cfg().PresetNamespaces
+	return NewForNamespaces[T](cfc, cfc.Cfg().PresetNamespaces, pick, opts...)
+}
+
+// NewForNamespaces is like New but watches an explicit set of namespaces; an
+// empty set means all namespaces. Use it when a resource lives in a namespace
+// that is not among the controller's preset namespaces.
+func NewForNamespaces[T runtime.Object](cfc types.CFController, namespaces []string, pick func(informers.SharedInformerFactory) cache.SharedIndexInformer, opts ...informers.SharedInformerOption) *Informer[T] {
 	if len(namespaces) == 0 {
 		namespaces = []string{metav1.NamespaceAll}
 	}

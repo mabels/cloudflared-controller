@@ -107,6 +107,43 @@ func TestUpsertMergeMoveRemove(t *testing.T) {
 	}
 }
 
+// An ingress with class "cloudflared" and no tunnel-name annotation has its
+// name inferred into the tparam. UpsertConfigMap must stamp that name onto the
+// configmap, otherwise the configmap handler (which reads only the configmap's
+// own annotations, no hints) cannot recover it and never creates the tunnel.
+func TestUpsertPersistsInferredTunnelName(t *testing.T) {
+	cfc, _ := newController(t)
+	tcm, err := k8s_data.StartTunnelConfigMaps(cfc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfc.K8sData().TunnelConfigMaps = tcm
+
+	tp := &types.CFTunnelParameter{Namespace: "apps", Name: "example.com"}
+	// meta without any tunnel-name annotation, as for an inferred ingress
+	meta := &metav1.ObjectMeta{Namespace: "apps", Name: "web"}
+	if err := tcm.UpsertConfigMap(cfc, tp, "ingress", meta, rule("a.example.com")); err != nil {
+		t.Fatal(err)
+	}
+
+	cmName := tp.K8SConfigMapName()
+	cm, err := cfc.Rest().K8s().CoreV1().ConfigMaps(cmName.Namespace).Get(cfc.Context(), cmName.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cm.Annotations["cloudflare.com/tunnel-name"]; got != "apps/example.com" {
+		t.Fatalf("tunnel-name annotation = %q, want %q", got, "apps/example.com")
+	}
+	// the configmap handler must recover the param from the configmap alone
+	recovered, err := k8s_data.NewUniqueTunnelParams().GetConfigMapTunnelParam(cfc, &cm.ObjectMeta)
+	if err != nil {
+		t.Fatalf("handler could not recover tunnel param: %v", err)
+	}
+	if recovered.Namespace != "apps" || recovered.Name != "example.com" {
+		t.Fatalf("recovered %s/%s, want apps/example.com", recovered.Namespace, recovered.Name)
+	}
+}
+
 func TestUpsertWithoutChangeDoesNotWrite(t *testing.T) {
 	cfc, k8s := newController(t)
 	tcm, err := k8s_data.StartTunnelConfigMaps(cfc)
