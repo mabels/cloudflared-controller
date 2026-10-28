@@ -39,328 +39,372 @@
                           "type": "object",
                           "properties": {
                             "group": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "any_valid_service_token": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "auth_context": {
+                              "type": "object",
                               "properties": {
                                 "ac_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "id",
                                 "identity_provider_id",
                                 "ac_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "auth_method": {
+                              "type": "object",
                               "properties": {
                                 "auth_method": {
-                                  "example": "mfa",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "mfa"
                                 }
                               },
                               "required": [
                                 "auth_method"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "azureAD": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "id",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "certificate": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "common_name": {
+                              "type": "object",
                               "properties": {
                                 "common_name": {
-                                  "example": "james@example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "james@example.com"
                                 }
                               },
                               "required": [
                                 "common_name"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "geo": {
+                              "type": "object",
                               "properties": {
                                 "country_code": {
-                                  "example": "US",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "US"
                                 }
                               },
                               "required": [
                                 "country_code"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "device_posture": {
+                              "type": "object",
                               "properties": {
+                                "account_id": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "example": "023e105f4ecef8ad9ca31a8372d0c353",
+                                      "maxLength": 32
+                                    }
+                                  ]
+                                },
                                 "integration_uid": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "integration_uid"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email_domain": {
+                              "type": "object",
                               "properties": {
                                 "domain": {
-                                  "example": "example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "example.com"
                                 }
                               },
                               "required": [
                                 "domain"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email_list": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email": {
+                              "type": "object",
                               "properties": {
                                 "email": {
-                                  "example": "test@example.com",
+                                  "type": "string",
                                   "format": "email",
-                                  "type": "string"
+                                  "example": "test@example.com"
                                 }
                               },
                               "required": [
                                 "email"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "everyone": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "external_evaluation": {
+                              "type": "object",
                               "properties": {
                                 "evaluate_url": {
-                                  "example": "https://eval.example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "https://eval.example.com"
                                 },
                                 "keys_url": {
-                                  "example": "https://eval.example.com/keys",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "https://eval.example.com/keys"
                                 }
                               },
                               "required": [
                                 "evaluate_url",
                                 "keys_url"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "github-organization": {
+                              "type": "object",
                               "properties": {
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "name": {
-                                  "example": "cloudflare",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "cloudflare"
                                 },
                                 "team": {
-                                  "example": "api-team",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "api-team"
                                 }
                               },
                               "required": [
                                 "name",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "gsuite": {
+                              "type": "object",
                               "properties": {
                                 "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "email",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "login_method": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "ip_list": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "ip": {
+                              "type": "object",
                               "properties": {
                                 "ip": {
-                                  "example": "2400:cb00:21:10a::/64",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "2400:cb00:21:10a::/64"
                                 }
                               },
                               "required": [
                                 "ip"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "okta": {
+                              "type": "object",
                               "properties": {
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "name": {
-                                  "example": "devs",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs"
                                 }
                               },
                               "required": [
                                 "name",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "saml": {
+                              "type": "object",
                               "properties": {
                                 "attribute_name": {
-                                  "example": "group",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "group"
                                 },
                                 "attribute_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "attribute_name",
                                 "attribute_value",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "oidc": {
+                              "type": "object",
                               "properties": {
                                 "claim_name": {
-                                  "example": "group",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "group"
                                 },
                                 "claim_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "claim_name",
                                 "claim_value",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "service_token": {
+                              "type": "object",
                               "properties": {
                                 "token_id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "token_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "linked_app_token": {
+                              "type": "object",
                               "properties": {
                                 "app_uid": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "app_uid"
-                              ],
-                              "type": "object"
+                              ]
+                            },
+                            "user_risk_score": {
+                              "type": "object",
+                              "properties": {
+                                "user_risk_score": {
+                                  "type": "array",
+                                  "items": {
+                                    "enum": [
+                                      "low",
+                                      "medium",
+                                      "high",
+                                      "unscored"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "example": [
+                                    "low",
+                                    "medium"
+                                  ],
+                                  "minItems": 1
+                                }
+                              },
+                              "required": [
+                                "user_risk_score"
+                              ]
+                            },
+                            "cloudflare_account_member": {
+                              "type": "object",
+                              "properties": {
+                                "account_id": {
+                                  "type": "string",
+                                  "example": "023e105f4ecef8ad9ca31a8372d0c353",
+                                  "maxLength": 32
+                                }
+                              }
                             }
                           },
                           "oneOf": [
@@ -482,6 +526,16 @@
                             {
                               "required": [
                                 "linked_app_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "user_risk_score"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "cloudflare_account_member"
                               ]
                             }
                           ]
@@ -493,328 +547,372 @@
                           "type": "object",
                           "properties": {
                             "group": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "any_valid_service_token": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "auth_context": {
+                              "type": "object",
                               "properties": {
                                 "ac_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "id",
                                 "identity_provider_id",
                                 "ac_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "auth_method": {
+                              "type": "object",
                               "properties": {
                                 "auth_method": {
-                                  "example": "mfa",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "mfa"
                                 }
                               },
                               "required": [
                                 "auth_method"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "azureAD": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "id",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "certificate": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "common_name": {
+                              "type": "object",
                               "properties": {
                                 "common_name": {
-                                  "example": "james@example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "james@example.com"
                                 }
                               },
                               "required": [
                                 "common_name"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "geo": {
+                              "type": "object",
                               "properties": {
                                 "country_code": {
-                                  "example": "US",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "US"
                                 }
                               },
                               "required": [
                                 "country_code"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "device_posture": {
+                              "type": "object",
                               "properties": {
+                                "account_id": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "example": "023e105f4ecef8ad9ca31a8372d0c353",
+                                      "maxLength": 32
+                                    }
+                                  ]
+                                },
                                 "integration_uid": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "integration_uid"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email_domain": {
+                              "type": "object",
                               "properties": {
                                 "domain": {
-                                  "example": "example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "example.com"
                                 }
                               },
                               "required": [
                                 "domain"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email_list": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email": {
+                              "type": "object",
                               "properties": {
                                 "email": {
-                                  "example": "test@example.com",
+                                  "type": "string",
                                   "format": "email",
-                                  "type": "string"
+                                  "example": "test@example.com"
                                 }
                               },
                               "required": [
                                 "email"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "everyone": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "external_evaluation": {
+                              "type": "object",
                               "properties": {
                                 "evaluate_url": {
-                                  "example": "https://eval.example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "https://eval.example.com"
                                 },
                                 "keys_url": {
-                                  "example": "https://eval.example.com/keys",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "https://eval.example.com/keys"
                                 }
                               },
                               "required": [
                                 "evaluate_url",
                                 "keys_url"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "github-organization": {
+                              "type": "object",
                               "properties": {
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "name": {
-                                  "example": "cloudflare",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "cloudflare"
                                 },
                                 "team": {
-                                  "example": "api-team",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "api-team"
                                 }
                               },
                               "required": [
                                 "name",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "gsuite": {
+                              "type": "object",
                               "properties": {
                                 "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "email",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "login_method": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "ip_list": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "ip": {
+                              "type": "object",
                               "properties": {
                                 "ip": {
-                                  "example": "2400:cb00:21:10a::/64",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "2400:cb00:21:10a::/64"
                                 }
                               },
                               "required": [
                                 "ip"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "okta": {
+                              "type": "object",
                               "properties": {
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "name": {
-                                  "example": "devs",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs"
                                 }
                               },
                               "required": [
                                 "name",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "saml": {
+                              "type": "object",
                               "properties": {
                                 "attribute_name": {
-                                  "example": "group",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "group"
                                 },
                                 "attribute_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "attribute_name",
                                 "attribute_value",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "oidc": {
+                              "type": "object",
                               "properties": {
                                 "claim_name": {
-                                  "example": "group",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "group"
                                 },
                                 "claim_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "claim_name",
                                 "claim_value",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "service_token": {
+                              "type": "object",
                               "properties": {
                                 "token_id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "token_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "linked_app_token": {
+                              "type": "object",
                               "properties": {
                                 "app_uid": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "app_uid"
-                              ],
-                              "type": "object"
+                              ]
+                            },
+                            "user_risk_score": {
+                              "type": "object",
+                              "properties": {
+                                "user_risk_score": {
+                                  "type": "array",
+                                  "items": {
+                                    "enum": [
+                                      "low",
+                                      "medium",
+                                      "high",
+                                      "unscored"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "example": [
+                                    "low",
+                                    "medium"
+                                  ],
+                                  "minItems": 1
+                                }
+                              },
+                              "required": [
+                                "user_risk_score"
+                              ]
+                            },
+                            "cloudflare_account_member": {
+                              "type": "object",
+                              "properties": {
+                                "account_id": {
+                                  "type": "string",
+                                  "example": "023e105f4ecef8ad9ca31a8372d0c353",
+                                  "maxLength": 32
+                                }
+                              }
                             }
                           },
                           "oneOf": [
@@ -936,6 +1034,16 @@
                             {
                               "required": [
                                 "linked_app_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "user_risk_score"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "cloudflare_account_member"
                               ]
                             }
                           ]
@@ -947,8 +1055,8 @@
                       },
                       "name": {
                         "description": "The name of the Access group.",
-                        "example": "Allow devs",
-                        "type": "string"
+                        "type": "string",
+                        "example": "Allow devs"
                       },
                       "require": {
                         "type": "array",
@@ -956,328 +1064,372 @@
                           "type": "object",
                           "properties": {
                             "group": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "any_valid_service_token": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "auth_context": {
+                              "type": "object",
                               "properties": {
                                 "ac_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "id",
                                 "identity_provider_id",
                                 "ac_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "auth_method": {
+                              "type": "object",
                               "properties": {
                                 "auth_method": {
-                                  "example": "mfa",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "mfa"
                                 }
                               },
                               "required": [
                                 "auth_method"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "azureAD": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "id",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "certificate": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "common_name": {
+                              "type": "object",
                               "properties": {
                                 "common_name": {
-                                  "example": "james@example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "james@example.com"
                                 }
                               },
                               "required": [
                                 "common_name"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "geo": {
+                              "type": "object",
                               "properties": {
                                 "country_code": {
-                                  "example": "US",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "US"
                                 }
                               },
                               "required": [
                                 "country_code"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "device_posture": {
+                              "type": "object",
                               "properties": {
+                                "account_id": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "example": "023e105f4ecef8ad9ca31a8372d0c353",
+                                      "maxLength": 32
+                                    }
+                                  ]
+                                },
                                 "integration_uid": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "integration_uid"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email_domain": {
+                              "type": "object",
                               "properties": {
                                 "domain": {
-                                  "example": "example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "example.com"
                                 }
                               },
                               "required": [
                                 "domain"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email_list": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "email": {
+                              "type": "object",
                               "properties": {
                                 "email": {
-                                  "example": "test@example.com",
+                                  "type": "string",
                                   "format": "email",
-                                  "type": "string"
+                                  "example": "test@example.com"
                                 }
                               },
                               "required": [
                                 "email"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "everyone": {
-                              "example": {},
-                              "type": "object"
+                              "type": "object",
+                              "example": {}
                             },
                             "external_evaluation": {
+                              "type": "object",
                               "properties": {
                                 "evaluate_url": {
-                                  "example": "https://eval.example.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "https://eval.example.com"
                                 },
                                 "keys_url": {
-                                  "example": "https://eval.example.com/keys",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "https://eval.example.com/keys"
                                 }
                               },
                               "required": [
                                 "evaluate_url",
                                 "keys_url"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "github-organization": {
+                              "type": "object",
                               "properties": {
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "name": {
-                                  "example": "cloudflare",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "cloudflare"
                                 },
                                 "team": {
-                                  "example": "api-team",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "api-team"
                                 }
                               },
                               "required": [
                                 "name",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "gsuite": {
+                              "type": "object",
                               "properties": {
                                 "email": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "email",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "login_method": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "ip_list": {
+                              "type": "object",
                               "properties": {
                                 "id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "ip": {
+                              "type": "object",
                               "properties": {
                                 "ip": {
-                                  "example": "2400:cb00:21:10a::/64",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "2400:cb00:21:10a::/64"
                                 }
                               },
                               "required": [
                                 "ip"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "okta": {
+                              "type": "object",
                               "properties": {
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 },
                                 "name": {
-                                  "example": "devs",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs"
                                 }
                               },
                               "required": [
                                 "name",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "saml": {
+                              "type": "object",
                               "properties": {
                                 "attribute_name": {
-                                  "example": "group",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "group"
                                 },
                                 "attribute_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "attribute_name",
                                 "attribute_value",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "oidc": {
+                              "type": "object",
                               "properties": {
                                 "claim_name": {
-                                  "example": "group",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "group"
                                 },
                                 "claim_value": {
-                                  "example": "devs@cloudflare.com",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "devs@cloudflare.com"
                                 },
                                 "identity_provider_id": {
-                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ea85612a-29c8-46c2-bacb-669d65136971"
                                 }
                               },
                               "required": [
                                 "claim_name",
                                 "claim_value",
                                 "identity_provider_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "service_token": {
+                              "type": "object",
                               "properties": {
                                 "token_id": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "token_id"
-                              ],
-                              "type": "object"
+                              ]
                             },
                             "linked_app_token": {
+                              "type": "object",
                               "properties": {
                                 "app_uid": {
-                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f",
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "aa0a4aab-672b-4bdb-bc33-a59f1130a11f"
                                 }
                               },
                               "required": [
                                 "app_uid"
-                              ],
-                              "type": "object"
+                              ]
+                            },
+                            "user_risk_score": {
+                              "type": "object",
+                              "properties": {
+                                "user_risk_score": {
+                                  "type": "array",
+                                  "items": {
+                                    "enum": [
+                                      "low",
+                                      "medium",
+                                      "high",
+                                      "unscored"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "example": [
+                                    "low",
+                                    "medium"
+                                  ],
+                                  "minItems": 1
+                                }
+                              },
+                              "required": [
+                                "user_risk_score"
+                              ]
+                            },
+                            "cloudflare_account_member": {
+                              "type": "object",
+                              "properties": {
+                                "account_id": {
+                                  "type": "string",
+                                  "example": "023e105f4ecef8ad9ca31a8372d0c353",
+                                  "maxLength": 32
+                                }
+                              }
                             }
                           },
                           "oneOf": [
@@ -1399,6 +1551,16 @@
                             {
                               "required": [
                                 "linked_app_token"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "user_risk_score"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "cloudflare_account_member"
                               ]
                             }
                           ]
@@ -1505,24 +1667,28 @@
                     "type": "object",
                     "properties": {
                       "config_src": {
-                        "default": "local",
-                        "description": "Indicates if this is a locally or remotely configured tunnel. If `local`, manage the tunnel using a YAML file on the origin machine. If `cloudflare`, manage the tunnel on the Zero Trust dashboard.",
-                        "enum": [
-                          "local",
-                          "cloudflare"
-                        ],
-                        "example": "cloudflare",
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "description": "Indicates if this is a locally or remotely configured tunnel. If `local`, manage the tunnel using a YAML file on the origin machine. If `cloudflare`, manage the tunnel on the Zero Trust dashboard.",
+                            "type": "string",
+                            "example": "cloudflare",
+                            "default": "local",
+                            "enum": [
+                              "local",
+                              "cloudflare"
+                            ]
+                          }
+                        ]
                       },
                       "name": {
                         "description": "A user-friendly name for a tunnel.",
-                        "example": "blog",
-                        "type": "string"
+                        "type": "string",
+                        "example": "blog"
                       },
                       "tunnel_secret": {
                         "description": "Sets the password required to run a locally-managed tunnel. Must be at least 32 bytes and encoded as a base64 string.",
-                        "example": "AQIDBAUGBwgBAgMEBQYHCAECAwQFBgcIAQIDBAUGBwg=",
-                        "type": "string"
+                        "type": "string",
+                        "example": "AQIDBAUGBwgBAgMEBQYHCAECAwQFBgcIAQIDBAUGBwg="
                       }
                     },
                     "required": [
@@ -1624,194 +1790,206 @@
                     "type": "object",
                     "properties": {
                       "config": {
-                        "description": "The tunnel configuration and ingress rules.",
-                        "properties": {
-                          "ingress": {
-                            "items": {
-                              "description": "Public hostname",
-                              "properties": {
-                                "hostname": {
-                                  "example": "tunnel.example.com",
-                                  "type": "string"
-                                },
-                                "originRequest": {
-                                  "description": "Configuration parameters for the public hostname specific connection settings between cloudflared and origin server.",
+                        "allOf": [
+                          {
+                            "description": "The tunnel configuration and ingress rules.",
+                            "type": "object",
+                            "properties": {
+                              "ingress": {
+                                "type": "array",
+                                "items": {
+                                  "description": "Public hostname",
+                                  "type": "object",
                                   "properties": {
-                                    "access": {
+                                    "hostname": {
+                                      "type": "string",
+                                      "example": "tunnel.example.com"
+                                    },
+                                    "originRequest": {
+                                      "description": "Configuration parameters for the public hostname specific connection settings between cloudflared and origin server.",
+                                      "type": "object",
                                       "properties": {
-                                        "audTag": {
-                                          "items": {
-                                            "type": "string"
+                                        "access": {
+                                          "type": "object",
+                                          "properties": {
+                                            "audTag": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": {
+                                              "type": "boolean",
+                                              "example": false
+                                            },
+                                            "teamName": {
+                                              "type": "string",
+                                              "example": "zero-trust-organization-name"
+                                            }
                                           },
-                                          "type": "array"
+                                          "required": [
+                                            "audTag",
+                                            "teamName"
+                                          ]
                                         },
-                                        "required": {
-                                          "example": false,
+                                        "caPool": {
+                                          "type": "string"
+                                        },
+                                        "connectTimeout": {
+                                          "type": "integer",
+                                          "example": 10
+                                        },
+                                        "disableChunkedEncoding": {
                                           "type": "boolean"
                                         },
-                                        "teamName": {
-                                          "example": "zero-trust-organization-name",
+                                        "http2Origin": {
+                                          "type": "boolean"
+                                        },
+                                        "httpHostHeader": {
+                                          "type": "string"
+                                        },
+                                        "keepAliveConnections": {
+                                          "type": "integer",
+                                          "example": 100
+                                        },
+                                        "keepAliveTimeout": {
+                                          "type": "integer",
+                                          "example": 90
+                                        },
+                                        "matchSNItoHost": {
+                                          "type": "boolean",
+                                          "example": false
+                                        },
+                                        "noHappyEyeballs": {
+                                          "type": "boolean",
+                                          "example": false
+                                        },
+                                        "noTLSVerify": {
+                                          "type": "boolean",
+                                          "example": false
+                                        },
+                                        "originServerName": {
+                                          "type": "string"
+                                        },
+                                        "proxyType": {
+                                          "type": "string"
+                                        },
+                                        "tcpKeepAlive": {
+                                          "type": "integer",
+                                          "example": 30
+                                        },
+                                        "tlsTimeout": {
+                                          "type": "integer",
+                                          "example": 10
+                                        }
+                                      }
+                                    },
+                                    "path": {
+                                      "type": "string",
+                                      "example": "subpath"
+                                    },
+                                    "service": {
+                                      "type": "string",
+                                      "example": "https://localhost:8001"
+                                    }
+                                  },
+                                  "required": [
+                                    "hostname",
+                                    "service"
+                                  ]
+                                },
+                                "minItems": 1
+                              },
+                              "originRequest": {
+                                "description": "Configuration parameters for the public hostname specific connection settings between cloudflared and origin server.",
+                                "type": "object",
+                                "properties": {
+                                  "access": {
+                                    "type": "object",
+                                    "properties": {
+                                      "audTag": {
+                                        "type": "array",
+                                        "items": {
                                           "type": "string"
                                         }
                                       },
-                                      "required": [
-                                        "audTag",
-                                        "teamName"
-                                      ],
-                                      "type": "object"
+                                      "required": {
+                                        "type": "boolean",
+                                        "example": false
+                                      },
+                                      "teamName": {
+                                        "type": "string",
+                                        "example": "zero-trust-organization-name"
+                                      }
                                     },
-                                    "caPool": {
-                                      "type": "string"
-                                    },
-                                    "connectTimeout": {
-                                      "example": 10,
-                                      "type": "integer"
-                                    },
-                                    "disableChunkedEncoding": {
-                                      "type": "boolean"
-                                    },
-                                    "http2Origin": {
-                                      "type": "boolean"
-                                    },
-                                    "httpHostHeader": {
-                                      "type": "string"
-                                    },
-                                    "keepAliveConnections": {
-                                      "example": 100,
-                                      "type": "integer"
-                                    },
-                                    "keepAliveTimeout": {
-                                      "example": 90,
-                                      "type": "integer"
-                                    },
-                                    "noHappyEyeballs": {
-                                      "example": false,
-                                      "type": "boolean"
-                                    },
-                                    "noTLSVerify": {
-                                      "example": false,
-                                      "type": "boolean"
-                                    },
-                                    "originServerName": {
-                                      "type": "string"
-                                    },
-                                    "proxyType": {
-                                      "type": "string"
-                                    },
-                                    "tcpKeepAlive": {
-                                      "example": 30,
-                                      "type": "integer"
-                                    },
-                                    "tlsTimeout": {
-                                      "example": 10,
-                                      "type": "integer"
-                                    }
+                                    "required": [
+                                      "audTag",
+                                      "teamName"
+                                    ]
                                   },
-                                  "type": "object"
-                                },
-                                "path": {
-                                  "example": "subpath",
-                                  "type": "string"
-                                },
-                                "service": {
-                                  "example": "https://localhost:8001",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "hostname",
-                                "service"
-                              ],
-                              "type": "object"
-                            },
-                            "minItems": 1,
-                            "type": "array"
-                          },
-                          "originRequest": {
-                            "description": "Configuration parameters for the public hostname specific connection settings between cloudflared and origin server.",
-                            "properties": {
-                              "access": {
-                                "properties": {
-                                  "audTag": {
-                                    "items": {
-                                      "type": "string"
-                                    },
-                                    "type": "array"
+                                  "caPool": {
+                                    "type": "string"
                                   },
-                                  "required": {
-                                    "example": false,
+                                  "connectTimeout": {
+                                    "type": "integer",
+                                    "example": 10
+                                  },
+                                  "disableChunkedEncoding": {
                                     "type": "boolean"
                                   },
-                                  "teamName": {
-                                    "example": "zero-trust-organization-name",
+                                  "http2Origin": {
+                                    "type": "boolean"
+                                  },
+                                  "httpHostHeader": {
                                     "type": "string"
+                                  },
+                                  "keepAliveConnections": {
+                                    "type": "integer",
+                                    "example": 100
+                                  },
+                                  "keepAliveTimeout": {
+                                    "type": "integer",
+                                    "example": 90
+                                  },
+                                  "matchSNItoHost": {
+                                    "type": "boolean",
+                                    "example": false
+                                  },
+                                  "noHappyEyeballs": {
+                                    "type": "boolean",
+                                    "example": false
+                                  },
+                                  "noTLSVerify": {
+                                    "type": "boolean",
+                                    "example": false
+                                  },
+                                  "originServerName": {
+                                    "type": "string"
+                                  },
+                                  "proxyType": {
+                                    "type": "string"
+                                  },
+                                  "tcpKeepAlive": {
+                                    "type": "integer",
+                                    "example": 30
+                                  },
+                                  "tlsTimeout": {
+                                    "type": "integer",
+                                    "example": 10
                                   }
-                                },
-                                "required": [
-                                  "audTag",
-                                  "teamName"
-                                ],
-                                "type": "object"
+                                }
                               },
-                              "caPool": {
-                                "type": "string"
-                              },
-                              "connectTimeout": {
-                                "example": 10,
-                                "type": "integer"
-                              },
-                              "disableChunkedEncoding": {
-                                "type": "boolean"
-                              },
-                              "http2Origin": {
-                                "type": "boolean"
-                              },
-                              "httpHostHeader": {
-                                "type": "string"
-                              },
-                              "keepAliveConnections": {
-                                "example": 100,
-                                "type": "integer"
-                              },
-                              "keepAliveTimeout": {
-                                "example": 90,
-                                "type": "integer"
-                              },
-                              "noHappyEyeballs": {
-                                "example": false,
-                                "type": "boolean"
-                              },
-                              "noTLSVerify": {
-                                "example": false,
-                                "type": "boolean"
-                              },
-                              "originServerName": {
-                                "type": "string"
-                              },
-                              "proxyType": {
-                                "type": "string"
-                              },
-                              "tcpKeepAlive": {
-                                "example": 30,
-                                "type": "integer"
-                              },
-                              "tlsTimeout": {
-                                "example": 10,
-                                "type": "integer"
+                              "warp-routing": {
+                                "type": "object",
+                                "properties": {
+                                  "enabled": {
+                                    "type": "boolean"
+                                  }
+                                }
                               }
-                            },
-                            "type": "object"
-                          },
-                          "warp-routing": {
-                            "properties": {
-                              "enabled": {
-                                "type": "boolean"
-                              }
-                            },
-                            "type": "object"
+                            }
                           }
-                        },
-                        "type": "object"
+                        ]
                       }
                     }
                   },

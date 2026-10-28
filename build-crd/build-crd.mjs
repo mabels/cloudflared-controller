@@ -17,7 +17,10 @@ function resolve(obj, dict) {
       delete obj[attr]["description"];
       delete obj[attr]["title"];
 
-      if (attr.startsWith('x-') || "readOnly" === attr) {
+      // keywords the k8s JSONSchemaProps does not know, booleans only to
+      // keep properties with these names
+      const unsupported = ["readOnly", "writeOnly", "deprecated"];
+      if (attr.startsWith('x-') || (unsupported.includes(attr) && typeof obj[attr] === "boolean")) {
         delete obj[attr];
       }
       // delete obj[attr]['type']
