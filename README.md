@@ -1,9 +1,13 @@
 # cloudflared-controller
 
-A Kubernetes controller that publishes Services and Ingresses through
-[Cloudflare Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
-Annotate a Service or Ingress, and the controller creates the tunnel, the DNS
-record and runs `cloudflared` for you. No CRDs, no public IP, no open ports.
+Publish your Kubernetes Services and Ingresses to the internet through
+[Cloudflare Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/),
+with nothing more than two annotations.
+
+cloudflared-controller has been running in production every day since 2023,
+on home and office clusters behind NAT, without a public IP and without a
+single open port. You annotate a Service or an Ingress, the controller takes
+care of the rest: the tunnel, the DNS record and the `cloudflared` process.
 
 ```yaml
 apiVersion: v1
@@ -19,48 +23,68 @@ spec:
       port: 8384
 ```
 
-`https://sync.example.com` now reaches `http://syncthing.<namespace>:8384`.
+A moment later `https://sync.example.com` serves `http://syncthing.<namespace>:8384`.
+
+## Highlights
+
+- **Annotations instead of CRDs**: works with the Services and Ingresses you
+  already have, no extra resource types to learn or install.
+- **Through your ingress controller or straight to the Service**: keep
+  traefik/nginx with their TLS and middlewares in the path, or skip them.
+- **Everything automatic**: creates the Cloudflare tunnel, stores its
+  credentials in a Secret, points a proxied CNAME to it and keeps the
+  `cloudflared` configuration in sync.
+- **Highly available**: every replica runs `cloudflared` as an additional
+  tunnel connector, leader election makes sure only one replica talks to the
+  Cloudflare API. A stopped `cloudflared` is restarted, config changes are
+  rolled over without a gap.
+- **Transparent**: the routes of every tunnel are a plain ConfigMap you can
+  read with `kubectl`.
+- **Small and easy to run**: one Deployment, a Helm chart, multi-arch images
+  (amd64, arm64) that ship with the latest `cloudflared`.
 
 ## How it works
 
 ```
 Service / Ingress ──annotations──▶ tunnel ConfigMap ──▶ Cloudflare tunnel + DNS
-   (any namespace)                 cfd-tunnel-cfg.<tunnel>      (leader only)
+   (any namespace)                 cfd-tunnel-cfg.<tunnel>      (leader)
                                           │
-                                          └──▶ cloudflared process (every replica)
+                                          └──▶ cloudflared (every replica)
 ```
 
 1. The controller watches Services and Ingresses with a
-   `cloudflare.com/tunnel-name` annotation and writes their routes into one
+   `cloudflare.com/tunnel-name` annotation and collects their routes in one
    ConfigMap per tunnel (`cfd-tunnel-cfg.<tunnel>`), one key per resource.
-2. For each tunnel ConfigMap the leader makes sure that
+2. For each tunnel the leader makes sure that
    - the Cloudflare tunnel `<cluster-name>/<namespace>/<tunnel>` exists,
    - its credentials are stored in the Secret `cfd-tunnel-key.<tunnel>`,
    - every hostname has a proxied CNAME to `<tunnel-id>.cfargotunnel.com`.
-3. Every replica runs a `cloudflared` per tunnel ConfigMap with a locally
-   generated config. Running more replicas gives more tunnel connectors.
-   A crashed `cloudflared` is restarted after `--restart-delay`; a changed
-   config starts a new `cloudflared` before the old one is stopped.
+3. Every replica runs one `cloudflared` per tunnel with a generated config.
 
-Removing the annotation (or the resource) removes its route. **Deleting a
-tunnel ConfigMap deletes the Cloudflare tunnel and its Secret.**
+### Good to know
 
-DNS records are only created or updated, never deleted. An existing CNAME is
-pointed to the tunnel; an existing A/AAAA record is left alone and logged as
-error.
+- Removing the annotation (or the resource) removes its route.
+- The tunnel ConfigMap owns its tunnel: deleting the ConfigMap also deletes
+  the tunnel in Cloudflare and its Secret.
+- DNS records are created and updated, never deleted. An existing CNAME is
+  pointed to the tunnel; an A/AAAA record with the same name is left alone and
+  reported in the log.
+- A running tunnel is never replaced: if a known tunnel can't be read with the
+  given token, the controller reports it instead of creating a new one.
 
 ## Requirements
 
-A Cloudflare API token and your Cloudflare account ID. The token needs two
-permissions; a DNS-only token (like the one external-dns uses) is not enough,
-the controller also manages the tunnels.
+All you need is a Cloudflare API token with two permissions and your
+Cloudflare account ID:
 
 | Type    | Resource          | Permission |
 |---------|-------------------|------------|
 | Account | Cloudflare Tunnel | Edit       |
 | Zone    | DNS               | Edit       |
 
-*DNS: Edit* also allows listing the zones, so no extra *Zone* permission is needed.
+*DNS: Edit* also allows listing the zones, no extra *Zone* permission needed.
+If you already run external-dns, give the controller its own token: the
+external-dns token usually covers DNS only.
 
 `--test-create-access` additionally needs *Account → Access: Apps and Policies → Edit*.
 
@@ -111,11 +135,6 @@ kubectl -n default create secret generic cloudflared-controller \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n default rollout restart deploy/cloudflared-controller
 ```
-
-The controller only reads tunnels, it never takes over a running tunnel's
-credentials: if a tunnel is known (ConfigMap annotation `tunnel-id`) but the
-token can't read it, the controller logs an error instead of creating a new
-tunnel.
 
 ## Installation
 
@@ -255,7 +274,7 @@ spec:
       secretName: hass-tls
 ```
 
-### Ingresses of class `cloudflared` (experimental)
+### Ingresses of class `cloudflared`
 
 With `ingressClassName: cloudflared` the tunnel goes straight to the backend
 Services, the rule hosts are the public hostnames. Without a
@@ -343,8 +362,10 @@ Releases: CI builds every push. A tag `vX.Y.Z` publishes
 `X.Y.Z-pre<commit>-cfd<cloudflared version>` and `dev`. A weekly build
 rebuilds the last release with the newest `cloudflared`.
 
-## Ideas
+## Roadmap
 
-- report the state in the resources' status instead of logs only
+- report the tunnel state in the status of the resources
 - Cloudflare Access applications per hostname
 - an `IngressClass` object in the Helm chart
+
+Contributions and issues are welcome.
