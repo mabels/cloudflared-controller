@@ -256,7 +256,8 @@ func handleEvent(cfc types.CFController, ev watch.Event) {
 		return
 	}
 	_, foundCTN := ingress.GetAnnotations()[config.AnnotationCloudflareTunnelName()]
-	if !foundCTN {
+	// the cloudflared class derives the tunnel name from the hosts
+	if !foundCTN && !isCloudflaredClass(ingress) {
 		cfc.Log().Debug().Str("uid", string(ingress.GetUID())).Str("name", ingress.Name).
 			Msgf("skipping not cloudflared annotated(%s)", config.AnnotationCloudflareTunnelName())
 		cfc.K8sData().TunnelConfigMaps.RemoveConfigMap(cfc, "ingress", &ingress.ObjectMeta)
@@ -265,10 +266,14 @@ func handleEvent(cfc types.CFController, ev watch.Event) {
 	processEvent(ev, ingress, cfc)
 }
 
+func isCloudflaredClass(ingress *netv1.Ingress) bool {
+	return ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudflared"
+}
+
 func processEvent(ev watch.Event, ingress *netv1.Ingress, cfc types.CFController) {
 	switch ev.Type {
 	case watch.Added, watch.Modified:
-		if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName == "cloudflared" {
+		if isCloudflaredClass(ingress) {
 			classIngress(cfc, ev, ingress)
 		} else {
 			stackedIngress(cfc, ev, ingress)

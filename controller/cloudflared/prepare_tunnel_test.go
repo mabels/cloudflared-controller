@@ -2,6 +2,7 @@ package cloudflared
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -17,15 +18,33 @@ import (
 )
 
 type mockCF struct {
+	getErr  error
+	hidden  bool // FindTunnel sees nothing, like a token without tunnel read access
+	created int
 	tunnels map[string]*shared.CloudflareTunnel
 	routes  map[string]string
 	deleted []string
 }
 
 func (m *mockCF) FindTunnel(_ context.Context, name string) (*shared.CloudflareTunnel, error) {
+	if m.hidden {
+		return nil, nil
+	}
 	return m.tunnels[name], nil
 }
+func (m *mockCF) GetTunnel(_ context.Context, id string) (*shared.CloudflareTunnel, error) {
+	if m.getErr != nil {
+		return nil, m.getErr
+	}
+	for _, t := range m.tunnels {
+		if t.ID == id {
+			return t, nil
+		}
+	}
+	return nil, nil
+}
 func (m *mockCF) CreateTunnel(_ context.Context, name string, _ []byte) (*shared.CloudflareTunnel, error) {
+	m.created++
 	t := &shared.CloudflareTunnel{ID: tunnelID, Name: name}
 	m.tunnels[name] = t
 	return t, nil
@@ -117,5 +136,36 @@ func TestValidateCreatesTunnelSecretAndRoutes(t *testing.T) {
 	}
 	if _, err := k8s.CoreV1().Secrets("default").Get(context.Background(), "cfd-tunnel-key.t1-example-com", metav1.GetOptions{}); err == nil {
 		t.Fatal("secret not deleted")
+	}
+}
+
+func TestNoNewTunnelIfExistingCantBeVerified(t *testing.T) {
+	log := zerolog.New(os.Stderr).Level(zerolog.Disabled)
+	inner := controller.NewCFController(&log)
+	inner.SetCfg(&types.CFControllerConfig{
+		ClusterName: "k8s",
+		Version:     "test",
+		CloudFlare:  types.CFControllerCloudflareConfig{AccountId: "acc", TunnelConfigMapNamespace: "default"},
+	})
+	k8s := fake.NewClientset()
+	cf := &mockCF{hidden: true, getErr: fmt.Errorf("403 Forbidden"), tunnels: map[string]*shared.CloudflareTunnel{}, routes: map[string]string{}}
+	cfc := &mockController{CFController: inner, rest: &mockRest{cf: cf, k8s: k8s}}
+	tp := &types.CFTunnelParameter{Namespace: "default", Name: "t1.example.com"}
+	cm := tunnelCM(map[string]string{"service_apps_a": "- hostname: a.example.com\n  service: http://a:80\n"})
+
+	if err := validateCFTunnel(cfc, tp, cm); err == nil {
+		t.Fatal("expected an error")
+	}
+	if cf.created != 0 {
+		t.Fatal("created a new tunnel although the existing one could not be verified")
+	}
+
+	// the tunnel is really gone: create a new one
+	cf.getErr = nil
+	if err := validateCFTunnel(cfc, tp, cm); err != nil {
+		t.Fatal(err)
+	}
+	if cf.created != 1 {
+		t.Fatalf("expected a new tunnel, created %d", cf.created)
 	}
 }

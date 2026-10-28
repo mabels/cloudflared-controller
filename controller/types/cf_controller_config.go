@@ -20,7 +20,6 @@ type CFControllerConfig struct {
 	ShowVersion            bool
 	RunningInstanceDir     string
 	CloudFlaredFname       string
-	ChannelSize            int
 	ClusterName            string
 	RestartDelay           time.Duration
 	ConfigMapLabelSelector string

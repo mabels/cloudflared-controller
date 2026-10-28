@@ -31,6 +31,8 @@ env:
     value: Europe/Berlin
 
 resources: {}
+# e.g. {options: [{name: ndots, value: "2"}]}
+dnsConfig: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}

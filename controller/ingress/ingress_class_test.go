@@ -198,3 +198,14 @@ func TestIngressClassHttpClass(t *testing.T) {
 	assert.Equal(t, cf.tunnelConfigMaps.upsertCalls[0].tparam.Namespace, "murks")
 	assert.Equal(t, cf.tunnelConfigMaps.upsertCalls[0].tparam.Name, "hello")
 }
+
+func TestIngressClassWithoutTunnelNameAnnotation(t *testing.T) {
+	cf, ingress, ev := setupIngress()
+	ingress.Annotations = map[string]string{}
+	ev.Object = ingress
+
+	handleEvent(cf, ev)
+
+	assert.Len(t, cf.tunnelConfigMaps.upsertCalls, 1)
+	assert.Equal(t, "what.tech", cf.tunnelConfigMaps.upsertCalls[0].tparam.Name)
+}

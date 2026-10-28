@@ -3,7 +3,9 @@ package cfclient
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -83,6 +85,25 @@ func (c *Client) FindTunnel(ctx context.Context, name string) (*shared.Cloudflar
 		}
 	}
 	return nil, iter.Err()
+}
+
+// GetTunnel returns nil, nil only if Cloudflare says the tunnel does not exist
+// or is deleted; every other failure (like missing permissions) is an error.
+func (c *Client) GetTunnel(ctx context.Context, tunnelID string) (*shared.CloudflareTunnel, error) {
+	t, err := c.api.ZeroTrust.Tunnels.Cloudflared.Get(ctx, tunnelID, zero_trust.TunnelCloudflaredGetParams{
+		AccountID: cloudflare.F(c.accountID),
+	})
+	var apiErr *cloudflare.Error
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !t.DeletedAt.IsZero() {
+		return nil, nil
+	}
+	return t, nil
 }
 
 func (c *Client) CreateTunnel(ctx context.Context, name string, secret []byte) (*shared.CloudflareTunnel, error) {

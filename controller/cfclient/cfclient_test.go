@@ -130,6 +130,20 @@ func (f *fakeCF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		t := map[string]any{"id": "11111111-2222-3333-4444-555555555555", "name": body["name"]}
 		f.tunnels = append(f.tunnels, t)
 		reply(w, t)
+	case strings.Contains(r.URL.Path, "/cfd_tunnel/") && r.Method == "GET":
+		id := parts[len(parts)-1]
+		switch id {
+		case "forbidden":
+			w.WriteHeader(403)
+			json.NewEncoder(w).Encode(map[string]any{"success": false, "errors": []any{map[string]any{"code": 10000, "message": "Authentication error"}}})
+		case "missing":
+			w.WriteHeader(404)
+			json.NewEncoder(w).Encode(map[string]any{"success": false, "errors": []any{map[string]any{"code": 1003, "message": "not found"}}})
+		case "deleted":
+			reply(w, map[string]any{"id": id, "deleted_at": "2026-01-01T00:00:00Z"})
+		default:
+			reply(w, map[string]any{"id": id, "name": "t"})
+		}
 	case strings.Contains(r.URL.Path, "/cfd_tunnel/") && r.Method == "DELETE":
 		reply(w, map[string]any{"id": parts[len(parts)-1]})
 	default:
@@ -262,5 +276,22 @@ func TestTunnelLifecycle(t *testing.T) {
 	}
 	if f.countCalls("DELETE /accounts/acc/cfd_tunnel/"+created.ID) != 2 { // connections + tunnel
 		t.Fatalf("unexpected calls %v", f.calls)
+	}
+}
+
+func TestGetTunnel(t *testing.T) {
+	_, c := newFakeCF(t)
+	if _, err := c.GetTunnel(context.Background(), "forbidden"); err == nil {
+		t.Fatal("403 must be an error")
+	}
+	for _, id := range []string{"missing", "deleted"} {
+		tun, err := c.GetTunnel(context.Background(), id)
+		if err != nil || tun != nil {
+			t.Fatalf("%s: expected gone, got %v %v", id, tun, err)
+		}
+	}
+	tun, err := c.GetTunnel(context.Background(), "alive")
+	if err != nil || tun == nil || tun.ID != "alive" {
+		t.Fatalf("expected tunnel, got %v %v", tun, err)
 	}
 }

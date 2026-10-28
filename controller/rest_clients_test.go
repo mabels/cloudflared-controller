@@ -13,7 +13,7 @@ func TestRestCF(t *testing.T) {
 	cfc := NewCFController(&_log)
 
 	t.Setenv("CLOUDFLARE_API_TOKEN", "api_token")
-	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "account_id")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "account_id\n")
 	cfg, err := config.GetConfig(cfc.Log(), "test")
 	if err != nil {
 		t.Fatal(err)

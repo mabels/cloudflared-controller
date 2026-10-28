@@ -27,10 +27,11 @@ func GetConfig(log *zerolog.Logger, version string) (*types.CFControllerConfig, 
 	}
 	pflag.StringVarP(&cfg.KubeConfigFile, "kubeconfig", "c", fmt.Sprintf("%s/.kube/config", os.Getenv("HOME")), "absolute path to the kubeconfig file")
 	pflag.StringArrayVarP(&cfg.PresetNamespaces, "namespace", "n", []string{}, "namespaces to watch")
-	pflag.StringVarP(&cfg.CloudFlare.ApiToken, "cloudflare-api-token", "t", os.Getenv("CLOUDFLARE_API_TOKEN"), "Cloudflare API Key/Token")
-	pflag.StringVarP(&cfg.CloudFlare.AccountId, "cloudflare-accountid", "a", os.Getenv("CLOUDFLARE_ACCOUNT_ID"), "Cloudflare Account ID")
+	// no env defaults here, --help would print the token
+	pflag.StringVarP(&cfg.CloudFlare.ApiToken, "cloudflare-api-token", "t", "", "Cloudflare API Token (env CLOUDFLARE_API_TOKEN)")
+	pflag.StringVarP(&cfg.CloudFlare.AccountId, "cloudflare-accountid", "a", "", "Cloudflare Account ID (env CLOUDFLARE_ACCOUNT_ID)")
 	pflag.StringVarP(&cfg.CloudFlare.ApiUrl, "cloudflare-api-url", "u", cfg.CloudFlare.ApiUrl, "Cloudflare API URL")
-	pflag.StringVarP(&cfg.Identity, "identity", "i", identity, "identity of this running instance")
+	pflag.StringVarP(&cfg.Identity, "identity", "i", "", "identity of this running instance (env POD_NAME, else random)")
 	pflag.StringVarP(&cfg.RunningInstanceDir, "running-instance-dir", "R", "./", "running instance directory")
 	pflag.StringVarP(&cfg.ConfigMapLabelSelector, "config-map-label", "C", "app=cloudflared-controller", "labelselector for our configmap")
 	pflag.StringVar(&cfg.CloudFlaredFname, "cloudflared-fname", "cloudflared", "cloudflared binary filename")
@@ -45,11 +46,22 @@ func GetConfig(log *zerolog.Logger, version string) (*types.CFControllerConfig, 
 	pflag.DurationVar(&cfg.RestartDelay, "restart-delay", 30*time.Second, "delay between restarts")
 	pflag.StringVar(&cfg.Leader.Name, "leader-name", "cloudflared-controller", "leader elected name")
 	pflag.StringVar(&cfg.Leader.Namespace, "leader-namespace", "default", "leader election namespace")
-	pflag.IntVar(&cfg.ChannelSize, "channel-size", 10, "channel size")
 	pflag.BoolVar(&cfg.TestCreateAccess, "test-create-access", false, "test create access")
 	pflag.Parse()
 	if cfg.CloudFlare.ApiToken == "" {
-		return nil, fmt.Errorf("Cloudflare API Key is required")
+		cfg.CloudFlare.ApiToken = os.Getenv("CLOUDFLARE_API_TOKEN")
+	}
+	if cfg.CloudFlare.AccountId == "" {
+		cfg.CloudFlare.AccountId = os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	}
+	if cfg.Identity == "" {
+		cfg.Identity = identity
+	}
+	// a pasted secret often ends with a newline
+	cfg.CloudFlare.ApiToken = strings.TrimSpace(cfg.CloudFlare.ApiToken)
+	cfg.CloudFlare.AccountId = strings.TrimSpace(cfg.CloudFlare.AccountId)
+	if cfg.CloudFlare.ApiToken == "" {
+		return nil, fmt.Errorf("Cloudflare API Token is required")
 	}
 	if cfg.CloudFlare.AccountId == "" {
 		return nil, fmt.Errorf("Cloudflare Account ID is required")
@@ -70,10 +82,6 @@ func AnnotationCloudflareTunnelCFDName() string {
 }
 func AnnotationCloudflareTunnelExternalName() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-external-name")
-}
-
-func AnnotationCloudflareTunnelHostHeader() string {
-	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-host-header")
 }
 
 func AnnotationCloudflareTunnelMapping() string {

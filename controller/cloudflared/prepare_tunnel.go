@@ -98,6 +98,18 @@ func validateCFTunnel(cfc types.CFController, tp *types.CFTunnelParameter, cm *c
 	if err != nil {
 		return err
 	}
+	if knownID := cm.GetAnnotations()[config.AnnotationCloudflareTunnelId()]; tunnel == nil && knownID != "" {
+		// a token without tunnel read access lists no tunnels; creating a
+		// new one would replace the credentials of the running tunnel
+		tunnel, err = cfc.Rest().CF().GetTunnel(cfc.Context(), knownID)
+		if err != nil {
+			cfc.Log().Error().Err(err).Str("tunnelId", knownID).Msg("Can't verify the existing tunnel, not creating a new one")
+			return err
+		}
+		if tunnel == nil {
+			cfc.Log().Warn().Str("tunnelId", knownID).Msg("Tunnel is gone in Cloudflare, creating a new one")
+		}
+	}
 	if tunnel != nil {
 		_, err := k8s_data.FetchSecret(cfc, tp.K8SSecretName().Namespace, tp.K8SSecretName().Name, tunnel.ID)
 		if err != nil {
