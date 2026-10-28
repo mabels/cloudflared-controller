@@ -4,7 +4,7 @@ package cloudflare
 import (
 	"context"
 
-	cfgo "github.com/cloudflare/cloudflare-go"
+	"github.com/cloudflare/cloudflare-go/v7/zero_trust"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -16,7 +16,7 @@ type CFDTunnelConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec cfgo.UnvalidatedIngressRule `json:"spec"`
+	Spec zero_trust.TunnelCloudflaredConfigurationGetResponse `json:"spec"`
 }
 
 type CFDTunnelConfigList struct {
@@ -32,14 +32,8 @@ const cfdTunnelConfigResource = "cfd-tunnel-configs"
 // same type that is provided as a pointer.
 func (in *CFDTunnelConfig) DeepCopyInto(out *CFDTunnelConfig) {
 	out.TypeMeta = in.TypeMeta
-	out.ObjectMeta = in.ObjectMeta
-	originRequest := *in.Spec.OriginRequest
-	out.Spec = cfgo.UnvalidatedIngressRule{
-		Hostname:      in.Spec.Hostname,
-		Path:          in.Spec.Path,
-		Service:       in.Spec.Service,
-		OriginRequest: &originRequest,
-	}
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = deepCopyRaw(in.Spec, in.Spec.JSON.RawJSON())
 }
 
 // DeepCopyObject returns a generically typed copy of an object

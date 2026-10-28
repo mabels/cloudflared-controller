@@ -4,7 +4,8 @@ package cloudflare
 import (
 	"context"
 
-	cfgo "github.com/cloudflare/cloudflare-go"
+	"github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/zero_trust"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -16,7 +17,29 @@ type CFDTunnel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec cfgo.TunnelCreateParams `json:"spec"`
+	Spec CFDTunnelSpec `json:"spec"`
+}
+
+// CFDTunnelSpec is the json shape of zero_trust.TunnelCloudflaredNewParams,
+// which can only be encoded (param.Field) and not decoded from a CRD.
+type CFDTunnelSpec struct {
+	Name         string                                         `json:"name"`
+	ConfigSrc    zero_trust.TunnelCloudflaredNewParamsConfigSrc `json:"config_src,omitempty"`
+	TunnelSecret string                                         `json:"tunnel_secret,omitempty"`
+}
+
+func (s CFDTunnelSpec) NewParams(accountID string) zero_trust.TunnelCloudflaredNewParams {
+	params := zero_trust.TunnelCloudflaredNewParams{
+		AccountID: cloudflare.F(accountID),
+		Name:      cloudflare.F(s.Name),
+	}
+	if s.ConfigSrc != "" {
+		params.ConfigSrc = cloudflare.F(s.ConfigSrc)
+	}
+	if s.TunnelSecret != "" {
+		params.TunnelSecret = cloudflare.F(s.TunnelSecret)
+	}
+	return params
 }
 
 type CFDTunnelList struct {
@@ -32,12 +55,8 @@ const cfgTunnelResource = "cfd-tunnels"
 // same type that is provided as a pointer.
 func (in *CFDTunnel) DeepCopyInto(out *CFDTunnel) {
 	out.TypeMeta = in.TypeMeta
-	out.ObjectMeta = in.ObjectMeta
-	out.Spec = cfgo.TunnelCreateParams{
-		Name:      in.Spec.Name,
-		Secret:    in.Spec.Secret,
-		ConfigSrc: in.Spec.ConfigSrc,
-	}
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
 }
 
 // DeepCopyObject returns a generically typed copy of an object

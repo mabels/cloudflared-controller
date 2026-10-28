@@ -29,7 +29,6 @@ func GetConfig(log *zerolog.Logger, version string) (*types.CFControllerConfig, 
 	pflag.StringArrayVarP(&cfg.PresetNamespaces, "namespace", "n", []string{}, "namespaces to watch")
 	pflag.StringVarP(&cfg.CloudFlare.ApiToken, "cloudflare-api-token", "t", os.Getenv("CLOUDFLARE_API_TOKEN"), "Cloudflare API Key/Token")
 	pflag.StringVarP(&cfg.CloudFlare.AccountId, "cloudflare-accountid", "a", os.Getenv("CLOUDFLARE_ACCOUNT_ID"), "Cloudflare Account ID")
-	// pflag.StringVarP(&cfg.CloudFlare.ZoneId, "cloudflare-zoneid", "z", os.Getenv("CLOUDFLARE_ZONE_ID"), "Cloudflare Zone ID")
 	pflag.StringVarP(&cfg.CloudFlare.ApiUrl, "cloudflare-api-url", "u", cfg.CloudFlare.ApiUrl, "Cloudflare API URL")
 	pflag.StringVarP(&cfg.Identity, "identity", "i", identity, "identity of this running instance")
 	pflag.StringVarP(&cfg.RunningInstanceDir, "running-instance-dir", "R", "./", "running instance directory")
@@ -55,9 +54,6 @@ func GetConfig(log *zerolog.Logger, version string) (*types.CFControllerConfig, 
 	if cfg.CloudFlare.AccountId == "" {
 		return nil, fmt.Errorf("Cloudflare Account ID is required")
 	}
-	// if cfg.CloudFlare.ZoneId == "" {
-	// 	return nil, fmt.Errorf("Cloudflare Zone ID is required")
-	// }
 	return &cfg, nil
 }
 
@@ -80,26 +76,10 @@ func AnnotationCloudflareTunnelHostHeader() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-host-header")
 }
 
-// func AnnotationCloudflareTunnelState() string {
-// 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-state")
-// }
-
-// AnnotationCloudflareTunnelConfigMap    = "cloudflare.com/tunnel-configmap"
-// "preparing", "ready"
-// func AnnotationCloudflareTunnelPort() string {
-// 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-port")
-// }
-
 func AnnotationCloudflareTunnelMapping() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-mapping")
 }
 
-// func AnnotationCloudflareTunnelSchema() string {
-// 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-schema")
-// }
-
-// CloudflareTunnelAccountId    = "cloudflare.com/tunnel-account-id"
-// CloudflareTunnelZoneId       = "cloudflare.com/tunnel-zone-id"
 func AnnotationCloudflareTunnelK8sSecret() string {
 	return fmt.Sprintf("%s/%s", AnnotationsPrefix, "tunnel-k8s-secret")
 }
@@ -109,23 +89,12 @@ func AnnotationCloudflareTunnelK8sConfigMap() string {
 
 const (
 	LabelCloudflaredControllerVersion = "cloudflared-controller/version"
-	// LabelCloudflaredControllerManaged = "cloudflared-controller/managed"
-	// LabelCloudflaredControllerTunnelId = "cloudflared-controller/tunnel-id"
 )
-
-// func CfAnnotations(annos map[string]string, tparam *types.CFTunnelParameter) map[string]string {
-// 	ret := make(map[string]string)
-// 	for k, v := range annos {
-// 		ret[k] = v
-// 	}
-// 	return ret
-// }
 
 func CfTunnelName(cfc types.CFController, tp *types.CFTunnelParameter) string {
 	return fmt.Sprintf("%s/%s/%s", cfc.Cfg().ClusterName, tp.Namespace, tp.Name)
 }
 
-// var reLabelValues = regexp.MustCompile("[A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?")
 var reSanitzeNice = regexp.MustCompile(`[^_\\-\\.a-zA-Z0-9]+`)
 
 func CfLabels(labels map[string]string, cfc types.CFController) map[string]string {

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/config"
@@ -27,20 +28,23 @@ import (
 )
 
 type runningInstance struct {
-	id                 string // uuid.UUID
-	tunnel             *Tunnel
+	id                 string
 	currentDir         string
 	configfname        string
-	cmd                *exec.Cmd
 	log                *zerolog.Logger
 	currentConfigMap   *corev1.ConfigMap
 	unregisterShutdown func()
+
+	lock    sync.Mutex
+	cmd     *exec.Cmd
+	stopped bool
+	done    chan struct{}
 }
 
 func (ri *runningInstance) buildCredentialsFile(cfc types.CFController, cm *corev1.ConfigMap) (credfname string, err error) {
 	tunnelIdStr, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId()]
 	if !found {
-		return credfname, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId())
+		return credfname, fmt.Errorf("missing annotation %s", config.AnnotationCloudflareTunnelId())
 	}
 	tunnelId, err := uuid.Parse(tunnelIdStr)
 	if err != nil {
@@ -81,10 +85,17 @@ func (ri *runningInstance) buildCredentialsFile(cfc types.CFController, cm *core
 func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (*types.CFConfigYaml, error) {
 	tunnelId, found := cm.ObjectMeta.GetAnnotations()[config.AnnotationCloudflareTunnelId()]
 	if !found {
-		return nil, fmt.Errorf("missing label %s", config.AnnotationCloudflareTunnelId())
+		return nil, fmt.Errorf("missing annotation %s", config.AnnotationCloudflareTunnelId())
 	}
+	// stable order, the map iteration order is random
+	keys := make([]string, 0, len(cm.Data))
+	for k := range cm.Data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	cfis := []types.CFConfigIngress{}
-	for _, rules := range cm.Data {
+	for _, k := range keys {
+		rules := cm.Data[k]
 		rule := []types.CFConfigIngress{}
 		err := yaml.Unmarshal([]byte(rules), &rule)
 		if err != nil {
@@ -107,57 +118,74 @@ func (ri *runningInstance) buildConfig(credfname string, cm *corev1.ConfigMap) (
 	return &igss, os.WriteFile(ri.configfname, yConfigYamlByte, 0600)
 }
 
-func (ri *runningInstance) Stop(cfc types.CFController) {
-	if ri.unregisterShutdown != nil {
-		ri.unregisterShutdown()
-		ri.unregisterShutdown = nil
-	}
-	if ri.cmd != nil {
-		err := ri.cmd.Process.Kill()
-		if err != nil {
-			ri.log.Error().Err(err).Msg("error killing process")
-		}
-		if !cfc.Cfg().Debug {
-			err := os.RemoveAll(ri.currentDir)
-			if err != nil {
-				ri.log.Error().Err(err).Str("dir", ri.currentDir).Msg("removing runtime dir")
-			}
-		}
-		ri.cmd = nil
-	}
+func (ri *runningInstance) isStopped() bool {
+	ri.lock.Lock()
+	defer ri.lock.Unlock()
+	return ri.stopped
 }
 
-func (ri *runningInstance) Start(cfc types.CFController) error {
-	log := cfc.Log().With().Str("component", "cloudflared").Str("id", ri.id).Logger()
+func (ri *runningInstance) Stop(cfc types.CFController) {
+	ri.lock.Lock()
+	if ri.stopped {
+		ri.lock.Unlock()
+		return
+	}
+	ri.stopped = true
+	close(ri.done)
+	cmd := ri.cmd
+	unregister := ri.unregisterShutdown
+	ri.unregisterShutdown = nil
+	ri.lock.Unlock()
+
+	if unregister != nil {
+		unregister()
+	}
+	if cmd != nil && cmd.Process != nil {
+		err := cmd.Process.Kill()
+		if err != nil {
+			ri.log.Debug().Err(err).Msg("error killing process")
+		}
+	}
+	if !cfc.Cfg().Debug {
+		err := os.RemoveAll(ri.currentDir)
+		if err != nil {
+			ri.log.Error().Err(err).Str("dir", ri.currentDir).Msg("removing runtime dir")
+		}
+	}
+	ri.log.Info().Msg("stopped")
+}
+
+func (ri *runningInstance) start(cfc types.CFController) (*exec.Cmd, error) {
 	cfdFname, err := exec.LookPath(cfc.Cfg().CloudFlaredFname)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// cloudflared tunnel --config ./config.yml  run
 	cmds := []string{cfdFname, "tunnel", "--no-autoupdate", "--config", ri.configfname, "run"}
-	ri.cmd = exec.Command(cfdFname, cmds[1:]...)
+	cmd := exec.Command(cfdFname, cmds[1:]...)
 
-	log.Info().Strs("cmds", cmds).Msg("starting cloudflared")
-	// log = log.With().Strs("cmds", cmds).Logger()
-	stdErr, err := ri.cmd.StderrPipe()
+	ri.log.Info().Strs("cmds", cmds).Msg("starting cloudflared")
+	stdErr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Error().Err(err).Msg("error getting stderr pipe")
-		return err
+		return nil, err
 	}
-	stdOut, err := ri.cmd.StdoutPipe()
+	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Error().Err(err).Msg("error getting stdout pipe")
-		return err
+		return nil, err
 	}
-	err = ri.cmd.Start()
+
+	ri.lock.Lock()
+	defer ri.lock.Unlock()
+	if ri.stopped {
+		return nil, fmt.Errorf("instance stopped")
+	}
+	err = cmd.Start()
 	if err != nil {
-		log.Error().Err(err).Msg("error starting command")
-		return err
+		return nil, err
 	}
-	log = log.With().Int("pid", ri.cmd.Process.Pid).Logger()
-	ri.log = &log
+	ri.cmd = cmd
+	log := ri.log.With().Int("pid", cmd.Process.Pid).Logger()
 	action := func(pi io.ReadCloser) {
-		log.Debug().Msg("started reading")
 		fileScanner := bufio.NewScanner(pi)
 		fileScanner.Split(bufio.ScanLines)
 		for fileScanner.Scan() {
@@ -166,24 +194,51 @@ func (ri *runningInstance) Start(cfc types.CFController) error {
 	}
 	go action(stdErr)
 	go action(stdOut)
-
 	log.Info().Msg("started")
-	return err
+	return cmd, nil
+}
+
+// supervise restarts cloudflared after RestartDelay until the instance is stopped
+func (ri *runningInstance) supervise(cfc types.CFController, cmd *exec.Cmd) {
+	for {
+		err := cmd.Wait()
+		if ri.isStopped() {
+			return
+		}
+		ri.log.Error().Err(err).Dur("restartDelay", cfc.Cfg().RestartDelay).Msg("cloudflared exited, restarting")
+		for {
+			select {
+			case <-ri.done:
+				return
+			case <-cfc.Context().Done():
+				return
+			case <-time.After(cfc.Cfg().RestartDelay):
+			}
+			cmd, err = ri.start(cfc)
+			if err == nil {
+				break
+			}
+			if ri.isStopped() {
+				return
+			}
+			ri.log.Error().Err(err).Msg("error restarting cloudflared")
+		}
+	}
 }
 
 type Tunnel struct {
-	processing   sync.Mutex
-	tunnelRunner *TunnelRunner
-	ri           *runningInstance
+	processing sync.Mutex
+	ri         *runningInstance
 }
 
 func idFromConfigMap(cm *corev1.ConfigMap) string {
 	keys := make([]string, 0, len(cm.Data))
-	for k, _ := range cm.Data {
+	for k := range cm.Data {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	data := make([]string, 0, 2*len(keys))
+	data := make([]string, 0, 2*len(keys)+1)
+	data = append(data, cm.GetAnnotations()[config.AnnotationCloudflareTunnelId()])
 	for _, k := range keys {
 		data = append(data, k, cm.Data[k])
 	}
@@ -197,25 +252,24 @@ func idFromConfigMap(cm *corev1.ConfigMap) string {
 	return strings.Join(parts, "-")
 }
 
-func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
+func newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap) (*runningInstance, error) {
 	id := idFromConfigMap(cm)
 	log := cfc.Log().With().Str("id", id).Str("component", "cloudflared").Logger()
 	ri := &runningInstance{
-		tunnel:           t,
 		id:               id,
 		currentConfigMap: cm.DeepCopy(),
 		currentDir:       path.Join(cfc.Cfg().RunningInstanceDir, id),
 		log:              &log,
+		done:             make(chan struct{}),
 	}
 	ri.unregisterShutdown = cfc.RegisterShutdown(func() {
 		ri.Stop(cfc)
 	})
-	stat, err := os.Stat(ri.currentDir)
-	if err == nil && stat.IsDir() {
-		log.Info().Msg("already running")
-		return nil, fmt.Errorf("already running")
+	// leftovers of an instance with the same config
+	err := os.RemoveAll(ri.currentDir)
+	if err == nil {
+		err = os.MkdirAll(ri.currentDir, 0700)
 	}
-	err = os.MkdirAll(ri.currentDir, 0700)
 	if err != nil {
 		log.Error().Err(err).Msg("error creating runtime dir")
 		ri.Stop(cfc)
@@ -223,78 +277,49 @@ func (t *Tunnel) newRunningInstance(cfc types.CFController, cm *corev1.ConfigMap
 	}
 	credfname, err := ri.buildCredentialsFile(cfc, cm)
 	if err != nil {
-		log.Error().Err(err).Msg("error building credentials file")
+		log.Warn().Err(err).Msg("tunnel not prepared yet")
 		ri.Stop(cfc)
 		return nil, err
 	}
-	cfgYaml, err := ri.buildConfig(credfname, cm)
+	_, err = ri.buildConfig(credfname, cm)
 	if err != nil {
 		log.Error().Err(err).Msg("error building config file")
 		ri.Stop(cfc)
 		return nil, err
 	}
-	for _, rule := range cfgYaml.Ingress {
-		if rule.Hostname == "" {
-			continue
-		}
-		uid, err := uuid.Parse(cfgYaml.Tunnel)
-		if err != nil {
-			log.Error().Err(err).Str("tunnelId", cfgYaml.Tunnel).Msg("error parsing tunnel id")
-			continue
-		}
-		registerCFDnsEndpoint(cfc, uid, rule.Hostname)
-	}
-	err = ri.Start(cfc)
+	cmd, err := ri.start(cfc)
 	if err != nil {
 		log.Error().Err(err).Msg("error starting cloudflared")
 		ri.Stop(cfc)
 		return nil, err
 	}
-	// var waitFn func()
-	waitFn := func() {
-		err := ri.cmd.Wait()
-		if err != nil && strings.Contains(err.Error(), "signal: killed") {
-			ri.Stop(cfc)
-			ri.cmd = nil // just in case
-			// time.Sleep(cfc.Cfg().RestartDelay)
-			// err = ri.Start(cfc)
-			// if err != nil {
-			// 	log.Error().Err(err).Msg("error starting cloudflared")
-			// 	ri.Stop(cfc)
-			// 	return
-			// }
-			// waitFn()
-			return
-		}
-		if err != nil {
-			ri.log.Error().Err(err).Msg("error waiting for command")
-		}
-		ri.Stop(cfc)
-		ri.cmd = nil // just in case
-	}
-	go waitFn()
+	go ri.supervise(cfc, cmd)
 	return ri, nil
+}
+
+func sameConfig(a, b *corev1.ConfigMap) bool {
+	tid := config.AnnotationCloudflareTunnelId()
+	return reflect.DeepEqual(a.Data, b.Data) && a.GetAnnotations()[tid] == b.GetAnnotations()[tid]
 }
 
 func (t *Tunnel) Start(cfc types.CFController, cm *corev1.ConfigMap) {
 	t.processing.Lock()
 	defer t.processing.Unlock()
-	if t.ri != nil && reflect.DeepEqual(t.ri.currentConfigMap.Data, cm.Data) {
-		t.ri.log.Info().Msg("already running no change")
+	if t.ri != nil && !t.ri.isStopped() && sameConfig(t.ri.currentConfigMap, cm) {
+		t.ri.log.Debug().Msg("already running no change")
 		return
 	}
 
+	// start the new instance before stopping the old one to avoid a gap
 	instanceToStop := t.ri
-	newri, err := t.newRunningInstance(cfc, cm)
+	newri, err := newRunningInstance(cfc, cm)
 	if err != nil {
-		cfc.Log().Error().Err(err).Msg("error starting cloudflared")
 		return
 	}
 	t.ri = newri
 	if instanceToStop != nil {
 		instanceToStop.Stop(cfc)
 	}
-
 }
 
 func (t *Tunnel) Stop(cfc types.CFController) {
@@ -302,6 +327,7 @@ func (t *Tunnel) Stop(cfc types.CFController) {
 	defer t.processing.Unlock()
 	if t.ri != nil {
 		t.ri.Stop(cfc)
+		t.ri = nil
 	}
 }
 
@@ -316,25 +342,24 @@ func NewTunnelRunner() *TunnelRunner {
 	}
 }
 
-func (tr *TunnelRunner) getTunnel(name string) *Tunnel {
+func (tr *TunnelRunner) getTunnel(cm *corev1.ConfigMap) *Tunnel {
 	tr.block.Lock()
 	defer tr.block.Unlock()
-	tunnel, found := tr.tunnels[name]
+	key := cm.Namespace + "/" + cm.Name
+	tunnel, found := tr.tunnels[key]
 	if !found {
-		tunnel = &Tunnel{
-			tunnelRunner: tr,
-		}
-		tr.tunnels[name] = tunnel
+		tunnel = &Tunnel{}
+		tr.tunnels[key] = tunnel
 	}
 	return tunnel
 }
 
 func (tr *TunnelRunner) Start(cfc types.CFController, cm *corev1.ConfigMap) {
-	tr.getTunnel(cm.Name).Start(cfc, cm)
+	tr.getTunnel(cm).Start(cfc, cm)
 }
 
 func (tr *TunnelRunner) Stop(cfc types.CFController, cm *corev1.ConfigMap) {
-	tr.getTunnel(cm.Name).Stop(cfc)
+	tr.getTunnel(cm).Stop(cfc)
 }
 
 func ConfigMapHandlerStartCloudflared(_cfc types.CFController) func(cms []*corev1.ConfigMap, ev watch.Event) {
@@ -346,24 +371,8 @@ func ConfigMapHandlerStartCloudflared(_cfc types.CFController) func(cms []*corev
 			cfc.Log().Error().Msg("error casting object")
 			return
 		}
-		// state, found := cm.Annotations[config.AnnotationCloudflareTunnelState()]
-		// if !found {
-		// 	cfc.Log().Error().Msg("error getting state")
-		// 	return
-		// }
-		// switch state {
-		// case "ready":
-		// case "preparing":
-		// 	cfc.Log().Debug().Msg("ignoring preparing state")
-		// 	return
-		// default:
-		// 	cfc.Log().Error().Str("state", state).Msg("unknown state")
-		// 	return
-		// }
 		switch ev.Type {
-		case watch.Added:
-			tr.Start(cfc, cm)
-		case watch.Modified:
+		case watch.Added, watch.Modified:
 			tr.Start(cfc, cm)
 		case watch.Deleted:
 			tr.Stop(cfc, cm)

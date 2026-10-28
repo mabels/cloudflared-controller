@@ -18,5 +18,4 @@ type CFController interface {
 	K8sData() *K8sData
 	Context() context.Context
 	CancelFunc() context.CancelFunc
-	// shutdownFns   map[string]func()
 }

@@ -40,9 +40,6 @@ func TestNewCFController(t *testing.T) {
 	if cf.K8sData().TunnelConfigMaps != nil {
 		t.Fatal("NewCFController returned nil K8sData")
 	}
-	if cf.K8sData().Namespaces != nil {
-		t.Fatal("NewCFController returned nil K8sData")
-	}
 	// if cf.CancelFunc == nil {
 	// 	t.Fatal("NewCFController returned nil CancelFunc")
 	// }

@@ -1,0 +1,45 @@
+image:
+  repository: ghcr.io/mabels/cloudflared-controller
+  # defaults to the chart appVersion
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicaCount: 1
+
+cloudflare:
+  accountId: ""
+  apiToken: ""
+  # use an existing secret with the keys CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
+  # instead of accountId/apiToken
+  existingSecret: ""
+
+controller:
+  # prefix of the tunnel names in cloudflare: <clusterName>/<namespace>/<name>
+  clusterName: k8s
+  # namespace of the tunnel configmaps and secrets, defaults to the release namespace
+  tunnelConfigMapNamespace: ""
+  # only watch these namespaces, empty watches all
+  namespaces: []
+  restartDelay: 30s
+  debug: false
+  extraArgs: []
+
+env:
+  - name: TZ
+    value: Europe/Berlin
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podSecurityContext: {}
+securityContext: {}
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true

@@ -2,67 +2,36 @@ package controller
 
 import (
 	"context"
-
-	"github.com/cloudflare/cloudflare-go/v3"
-	"github.com/cloudflare/cloudflare-go/v3/option"
-	"github.com/cloudflare/cloudflare-go/v3/zones"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/mabels/cloudflared-controller/controller/types"
 	"github.com/rs/zerolog"
 )
 
-type localController struct {
-	// types.CFController
-	shutdownFns map[string]func()
-	rest        *RestClients
-	log         *zerolog.Logger
-	cfg         *types.CFControllerConfig
-	context     context.Context
-	cancelFunc  context.CancelFunc
-	k8sData     *types.K8sData
+type shutdownRegistry struct {
+	lock sync.Mutex
+	fns  map[string]func()
 }
 
-func getZones(cfc types.CFController) ([]zones.Zone, error) {
-	client := cloudflare.NewClient(
-		option.WithAPIToken(cfc.Cfg().CloudFlare.ApiToken),
-	)
-
-	// cloudflare.New(&cloudflare.ClientParams{
-	// 	Token:  cfc.Cfg().CloudFlare.ApiToken,
-	// 	Logger: utils.NewLeveledLogger(cfc.Log()),
-	// 	// Debug:  true,
-	// })
-	// if err != nil {
-	// 	return nil, err
-	// }
-	zoneLst := []zones.Zone{}
-	page := 0
-
-	for {
-		pages, err := client.Zones.List(cfc.Context(), zones.ZoneListParams{})
-		if err != nil {
-			return nil, err
-		}
-		zoneLst = append(zoneLst, pages.Result...)
-		if len(pages.Result) == 0 {
-			break
-		}
-		page++
-	}
-	return zoneLst, nil
+type localController struct {
+	shutdown   *shutdownRegistry
+	rest       *RestClients
+	log        *zerolog.Logger
+	cfg        *types.CFControllerConfig
+	context    context.Context
+	cancelFunc context.CancelFunc
+	k8sData    *types.K8sData
 }
 
 func NewCFController(log *zerolog.Logger) types.CFController {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	cfc := localController{
-		// CFController: types.CFController{
 		log:        log,
 		context:    ctx,
 		cancelFunc: cancelFn,
 		k8sData:    &types.K8sData{},
-		// },
-		shutdownFns: make(map[string]func()),
+		shutdown:   &shutdownRegistry{fns: make(map[string]func())},
 	}
 	cfc.rest = NewRestClients(&cfc)
 	return &cfc
@@ -112,15 +81,27 @@ func (cfc *localController) WithComponent(component string, fns ...func(types.CF
 
 func (cfc *localController) RegisterShutdown(sfn func()) func() {
 	id := uuid.New().String()
-	cfc.shutdownFns[id] = sfn
+	cfc.shutdown.lock.Lock()
+	cfc.shutdown.fns[id] = sfn
+	cfc.shutdown.lock.Unlock()
 	return func() {
-		delete(cfc.shutdownFns, id)
+		cfc.shutdown.lock.Lock()
+		delete(cfc.shutdown.fns, id)
+		cfc.shutdown.lock.Unlock()
 	}
 }
 
 func (cfc *localController) Shutdown() error {
-	for _, sfn := range cfc.shutdownFns {
+	cfc.shutdown.lock.Lock()
+	fns := make([]func(), 0, len(cfc.shutdown.fns))
+	for _, sfn := range cfc.shutdown.fns {
+		fns = append(fns, sfn)
+	}
+	cfc.shutdown.lock.Unlock()
+	// the shutdown functions unregister themselves
+	for _, sfn := range fns {
 		sfn()
 	}
+	cfc.cancelFunc()
 	return nil
 }

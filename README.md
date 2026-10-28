@@ -5,16 +5,16 @@ this is very much a work in progress
 
 ## TODO
 - implemented in production to see if it is stable (On going)
-- helm chart (inkl rbac to control that configmap und secrets are writeable/readable)
 - add ingressClass support (untested)
 - improve the documentation (on going)
 - add "more" tests (on going)
-- restart logic for the cloudflared
-- switch watcher to use informer
 - runtime addressable name from sha256 of the configmap data
 - enable access-control
 - move the state to status section and make it a log
 
+- restart logic for the cloudflared (done)
+- switch watcher to use informer (done)
+- helm chart (done)
 - add service support (done)
 - queue updates for configMap (done)
 - state improvements (done)
@@ -27,8 +27,36 @@ CLOUDFLARE_ACCOUNT_ID=<from your CF website>
 ```
 The CLOUDFLARE_API_TOKEN needs the following permissions
 - All accounts - Cloudflare Tunnel:Edit
-- All zones - DNS:Read
+- All zones - Zone:Read
+- All zones - DNS:Edit
 
+The controller creates a proxied CNAME `<tunnel-id>.cfargotunnel.com` for every
+hostname. An existing CNAME is pointed to the tunnel, an existing A/AAAA record
+is left alone and reported as error.
+
+In kubernetes keep the token in a secret and reference it with `secretKeyRef`.
+
+
+## Helm
+```sh
+helm install cloudflared-controller ./helm/cloudflared-controller -n default \
+   --set cloudflare.accountId=<from your CF website> \
+   --set cloudflare.apiToken=<from your CF Console>
+```
+or create the secret yourself and pass `--set cloudflare.existingSecret=<name>`;
+it needs the keys `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+The chart does not need any CRDs. See `helm/cloudflared-controller/values.yaml`
+for the other options.
+
+To take over resources which were applied by hand, label and annotate them first:
+```sh
+for r in deployment/cloudflared-controller serviceaccount/cloudflared-controller \
+         clusterrole/cloudflared-controller clusterrolebinding/cloudflared-controller; do
+  kubectl -n default label $r app.kubernetes.io/managed-by=Helm --overwrite
+  kubectl -n default annotate $r meta.helm.sh/release-name=cloudflared-controller \
+    meta.helm.sh/release-namespace=default --overwrite
+done
+```
 
 ## Docker
 ```sh

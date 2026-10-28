@@ -96,7 +96,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version-file: go.mod
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.10.0
@@ -113,11 +113,16 @@ jobs:
           # git commit -am "chore: update build time cloudflare-schema.crds.json"
 
 
+      - name: Lint helm chart
+        run: |
+          helm lint helm/cloudflared-controller --set cloudflare.existingSecret=x
+          helm template helm/cloudflared-controller --set cloudflare.existingSecret=x | kubectl apply --dry-run=server -f -
+
       - name: Build
         run: go build -v ./...
 
       - name: Test
-        run: go test -v ./...
+        run: go test -race -v ./...
 
       - name: Set up Docker Buildx
         if: ${{ env.PUSH_TAG == 'needed' }}

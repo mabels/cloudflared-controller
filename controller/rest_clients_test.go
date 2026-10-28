@@ -8,47 +8,27 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func TestRestCFClientWithoutZoneID(t *testing.T) {
+func TestRestCF(t *testing.T) {
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	cfc := NewCFController(&_log)
 
-	os.Setenv("CLOUDFLARE_API_TOKEN", "api_token")
-	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "account_id")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "api_token")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "account_id")
 	cfg, err := config.GetConfig(cfc.Log(), "test")
 	if err != nil {
-		cfc.Log().Fatal().Err(err).Msg("Failed to get config")
+		t.Fatal(err)
 	}
 	cfc.SetCfg(cfg)
 
 	rc := NewRestClients(cfc)
-	cf, err := rc.CFClientWithoutZoneID()
-	if err != nil {
-		t.Fatal(err)
-	}
+	cf := rc.CF()
 	if cf == nil {
-		t.Fatal("NewRestClients returned nil")
+		t.Fatal("CF returned nil")
+	}
+	if cf != rc.CF() {
+		t.Fatal("CF is not cached")
+	}
+	if cf.AccountID() != "account_id" {
+		t.Fatalf("unexpected account id %s", cf.AccountID())
 	}
 }
-
-// func TestRestCFClientGetCFClientForDomain(t *testing.T) {
-// 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
-// 	cfc := NewCFController(&_log)
-
-// 	os.Setenv("CLOUDFLARE_API_TOKEN", "api_token")
-// 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "account_id")
-// 	cfg, err := config.GetConfig(cfc.Log(), "test")
-// 	if err != nil {
-// 		cfc.Log().Fatal().Err(err).Msg("Failed to get config")
-// 	}
-// 	cfc.SetCfg(cfg)
-
-// 	rc := NewRestClients(cfc)
-// 	cf, err := rc.GetCFClientForDomain("example.com")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	if cf == nil {
-// 		t.Fatal("NewRestClients returned nil")
-// 	}
-
-// }

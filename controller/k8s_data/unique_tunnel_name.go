@@ -35,9 +35,6 @@ func (utp *UniqueTunnelParams) GetConfigMapTunnelParam(cfc types.CFController, o
 
 	tunnelName, ok := ometa.Annotations[config.AnnotationCloudflareTunnelName()]
 	if !ok {
-		// // strip domain from tunnelName
-		// externalName, ok := ometa.Annotations[config.AnnotationCloudflareTunnelExternalName()]
-		// if !ok {
 		if len(hints) > 0 {
 			ns_host := strings.SplitN(hints[0], "/", 2)
 			if len(ns_host) > 1 {
@@ -50,15 +47,7 @@ func (utp *UniqueTunnelParams) GetConfigMapTunnelParam(cfc types.CFController, o
 				}
 			}
 		}
-		// 	return nil, fmt.Errorf("No tunnel name annotation(%s) or external name annotation(%s)",
-		// 		config.AnnotationCloudflareTunnelName(), config.AnnotationCloudflareTunnelExternalName())
-		// }
-		// domainparts := strings.Split(strings.Trim(strings.TrimSpace(externalName), "."), ".")
-		// if len(domainparts) >= 2 {
-		// 	tunnelName = fmt.Sprintf("%s.%s", domainparts[len(domainparts)-2], domainparts[len(domainparts)-1])
-		// } else {
 		return nil, fmt.Errorf("No usable tunnel name annotation: %s", config.AnnotationCloudflareTunnelName())
-		// }
 	}
 	ret := types.CFTunnelParameter{}
 	parts := strings.Split(strings.TrimSpace(tunnelName), "/")

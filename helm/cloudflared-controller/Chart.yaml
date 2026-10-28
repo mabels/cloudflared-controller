@@ -1,0 +1,9 @@
+apiVersion: v2
+name: cloudflared-controller
+description: Kubernetes Ingress/Service controller which runs cloudflared tunnels
+type: application
+version: 0.2.0
+appVersion: "latest"
+home: https://github.com/mabels/cloudflared-controller
+sources:
+  - https://github.com/mabels/cloudflared-controller

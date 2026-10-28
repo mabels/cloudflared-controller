@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cfc.fullname" . }}
+  labels:
+    {{- include "cfc.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cfc.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cfc.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "cfc.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: cloudflared-controller
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --running-instance-dir=/run/cloudflared-controller
+            - --cloudflared-clustername={{ .Values.controller.clusterName }}
+            - --cloudflared-tunnel-configmap-namespace={{ .Values.controller.tunnelConfigMapNamespace | default .Release.Namespace }}
+            - --leader-name={{ include "cfc.fullname" . }}
+            - --leader-namespace={{ .Release.Namespace }}
+            - --restart-delay={{ .Values.controller.restartDelay }}
+            {{- range .Values.controller.namespaces }}
+            - --namespace={{ . }}
+            {{- end }}
+            {{- if .Values.controller.debug }}
+            - --debug
+            {{- end }}
+            {{- with .Values.controller.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CLOUDFLARE_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cfc.secretName" . }}
+                  key: CLOUDFLARE_ACCOUNT_ID
+            - name: CLOUDFLARE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cfc.secretName" . }}
+                  key: CLOUDFLARE_API_TOKEN
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: run
+              mountPath: /run/cloudflared-controller
+      volumes:
+        - name: run
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

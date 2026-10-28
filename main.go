@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -23,45 +23,38 @@ import (
 	"github.com/mabels/cloudflared-controller/controller/leader"
 	"github.com/mabels/cloudflared-controller/controller/svc"
 	"github.com/mabels/cloudflared-controller/controller/types"
-	"github.com/mabels/cloudflared-controller/controller/watcher"
 	"github.com/mabels/cloudflared-controller/utils"
 
+	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
-        "github.com/joho/godotenv"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 var Version = "dev"
 
-// type namespacesWatcher = types.Watcher[corev1.Namespace, *corev1.Namespace, types.WatcherBindingNamespace, types.WatcherBindingNamespaceClient]
-
-func watchedNamespaces(cfc types.CFController) (types.Watcher[*corev1.Namespace], error) {
-	log := cfc.Log().With().Str("watcher", "namespaces").Logger()
-	wt := watcher.NewWatcher(
-		types.WatcherConfig[corev1.Namespace, *corev1.Namespace, types.WatcherBindingNamespace, types.WatcherBindingNamespaceClient]{
-			Log:     &log,
-			Context: cfc.Context(),
-			K8sClient: types.WatcherBindingNamespaceClient{
-				Nif: cfc.Rest().K8s().CoreV1().Namespaces(),
-			},
-		})
-	err := wt.Start()
-	return wt, err
+// runLeader does the work only one instance should do, until ctx is done.
+func runLeader(cfc types.CFController, ctx context.Context) {
+	unreg := cloudflared.ConfigMapHandlerPrepareCloudflared(cfc)
+	defer unreg()
+	if err := svc.Start(cfc, ctx); err != nil {
+		cfc.Log().Error().Err(err).Msg("Failed to start service watcher")
+	}
+	if err := ingress.Start(cfc, ctx); err != nil {
+		cfc.Log().Error().Err(err).Msg("Failed to start ingress watcher")
+	}
+	<-ctx.Done()
 }
 
 func main() {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	_log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	klog.SetOutput(utils.ConnectKlog2ZeroLog(&_log))
 	klog.LogToStderr(false)
 
 	err := godotenv.Overload()
-        if err != nil {
-           _log.Warn().Err(err).Msg("not loading from .env file")
-        } else {
-	   _log.Info().Msg("found .env file")
+	if err != nil {
+		_log.Debug().Err(err).Msg("not loading from .env file")
+	} else {
+		_log.Info().Msg("found .env file")
 	}
 
 	cfc := controller.NewCFController(&_log)
@@ -71,7 +64,9 @@ func main() {
 	}
 
 	if cfg.TestCreateAccess {
-		controller.CreateAccessApp(cfg)
+		if err := controller.CreateAccessApp(cfc.Log(), cfg); err != nil {
+			cfc.Log().Fatal().Err(err).Msg("test create access")
+		}
 		return
 	}
 
@@ -85,11 +80,10 @@ func main() {
 	}
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	// signal.Notify(c, os.Kill)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
-		cfc.Log().Info().Msg("Received SIGINT, shutting down")
+		sig := <-c
+		cfc.Log().Info().Str("signal", sig.String()).Msg("Shutting down")
 		cfc.Shutdown()
 		os.Exit(130)
 	}()
@@ -108,53 +102,26 @@ func main() {
 	}
 	cfc.Rest().SetK8s(k8s)
 
-	cfc.Rest().K8s().CoreV1().Namespaces()
-
-	cfc.K8sData().Namespaces, err = watchedNamespaces(cfc)
-	if err != nil {
-		cfc.Log().Fatal().Err(err).Msg("Failed to start namespace watcher")
-	}
-	// err = cfc.K8sData.Namespaces.Start()
-	// if err != nil {
-	// 	cfc.Log().Fatal().Err(err).Msg("Failed to start namespace watcher")
-	// }
-	// cfc.K8sData.TunnelConfigMaps = k8s_data.NewTunnelConfigMaps()
-
 	cfc.Log().Info().Str("serverName", config.ServerName).Str("version", Version).Msg("Starting controller")
 
+	cfc.K8sData().TunnelConfigMaps, err = k8s_data.StartTunnelConfigMaps(cfc)
+	if err != nil {
+		cfc.Log().Fatal().Err(err).Msg("Failed to start tunnel configmap watcher")
+	}
 	if !cfc.Cfg().NoCloudFlared {
-		cfc.K8sData().TunnelConfigMaps = k8s_data.StartWaitForTunnelConfigMaps(cfc)
 		cfc.RegisterShutdown(
 			cfc.K8sData().TunnelConfigMaps.Register(
 				cloudflared.ConfigMapHandlerStartCloudflared(cfc)))
 	}
 
-	for {
-		runningLeaders := []func(){}
+	for cfc.Context().Err() == nil {
 		leader.LeaderSelection(cfc, leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(c context.Context) {
-				if len(runningLeaders) > 0 {
-					cfc.Log().Fatal().Msg("Already running leader")
-				}
+			OnStartedLeading: func(ctx context.Context) {
 				cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("became leader, starting work.")
-				go func() {
-					// this might been take to long for the election selection
-					runningLeaders = append(runningLeaders,
-						ingress.Start(cfc),
-						svc.Start(cfc),
-						cloudflared.ConfigMapHandlerPrepareCloudflared(cfc))
-				}()
+				runLeader(cfc, ctx)
 			},
 			OnStoppedLeading: func() {
 				cfc.Log().Info().Str("id", cfc.Cfg().Identity).Msg("no longer the leader, staying inactive.")
-				if len(runningLeaders) == 0 {
-					cfc.Log().Fatal().Msg("Try to stop leader, but not running")
-				}
-				my := runningLeaders
-				runningLeaders = []func(){}
-				for _, f := range my {
-					f()
-				}
 			},
 			OnNewLeader: func(current_id string) {
 				if current_id == cfc.Cfg().Identity {
@@ -166,8 +133,4 @@ func main() {
 		time.Sleep(time.Second * 5)
 		cfc.Log().Info().Msg("Restarting leader selection")
 	}
-
-	// for {
-	// 	time.Sleep(time.Second)
-	// }
 }

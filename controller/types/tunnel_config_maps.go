@@ -11,10 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// type TunnelConfigMap struct {
-// 	Cm corev1.ConfigMap
-// }
-
 type CFTunnelParameter struct {
 	Name      string
 	Namespace string
@@ -23,10 +19,6 @@ type CFTunnelParameter struct {
 type CFTunnelParameterWithID struct {
 	CFTunnelParameter
 	ID uuid.UUID
-}
-
-func (cft *CFTunnelParameter) ObjectMeta(ometa *metav1.ObjectMeta) metav1.ObjectMeta {
-	panic("implement me")
 }
 
 var reSanitzeAlpha = regexp.MustCompile(`[^a-zA-Z0-9]+`)
@@ -54,10 +46,4 @@ type TunnelConfigMaps interface {
 
 	UpsertConfigMap(cfc CFController, tparam *CFTunnelParameter, kind string, meta *metav1.ObjectMeta, cfcis []CFConfigIngress) error
 	RemoveConfigMap(cfc CFController, kind string, meta *metav1.ObjectMeta)
-	// func (cfmh *CloudFlaredConfigMapHandler) WriteCloudflaredConfig(cfc types.CFController, kind string, resName string, tp *UpsertTunnelParams, cts *CFTunnelSecret, cfcis []config.CFConfigIngress) error {
-	// func (cfmh *CloudFlaredConfigMapHandler) RemoveFromCloudflaredConfig(cfc types.CFController, kind string, meta *metav1.ObjectMeta) {
-
-	// Get func() []TunnelConfigMap
-	// CmsLock sync.Mutex
-	// Cms     map[string]TunnelConfigMap
 }

@@ -62,34 +62,7 @@ func main() {
 		panic(err)
 	}
 
-	// ags, err := cif.AccessGroups("product-pipeline").List(metav1.ListOptions{})
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// fmt.Printf("AccessGroup found: %+v\n", ags)
-
 	go cloudflare.WatchAccessGroups(cif, "product-pipeline", namedEventHandlerFuncs{name: "AccessGroup"})
 	go cloudflare.WatchCFDTunnels(cif, "product-pipeline", namedEventHandlerFuncs{name: "CFDTunnel"})
 	cloudflare.WatchCFDTunnelConfigs(cif, "product-pipeline", namedEventHandlerFuncs{name: "CFDTunnelConfig"})
-	// time.Sleep(30 * time.Second)
-	// for _, item := range store.List() {
-	// 	fmt.Printf("%+v\n", item)
-	// }
-
-	// cloudflare.AddToScheme(scheme.Scheme)
-
-	// crdConfig := *config
-	// crdConfig.ContentConfig.GroupVersion = &schema.GroupVersion{Group: cloudflare.GroupName, Version: cloudflare.GroupVersion}
-	// crdConfig.APIPath = "/apis"
-	// crdConfig.NegotiatedSerializer = serializer.NewCodecFactory(scheme.Scheme)
-	// crdConfig.UserAgent = rest.DefaultKubernetesUserAgent()
-
-	// access, err := rest.UnversionedRESTClientFor(&crdConfig)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// var ag cloudflare.AccessGroup
-	// access.Get().Namespace("product-pipeline").Resource("accessgroups").Do(context.Background()).Into(&ag)
-	// fmt.Printf("%+v\n", ag)
 }

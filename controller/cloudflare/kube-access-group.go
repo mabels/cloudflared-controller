@@ -4,7 +4,7 @@ package cloudflare
 import (
 	"context"
 
-	cfgo "github.com/cloudflare/cloudflare-go"
+	"github.com/cloudflare/cloudflare-go/v7/zero_trust"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -16,7 +16,7 @@ type AccessGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec cfgo.AccessGroup `json:"spec"`
+	Spec zero_trust.AccessGroupGetResponse `json:"spec"`
 }
 
 type AccessGroupList struct {
@@ -32,16 +32,8 @@ const accessGroupResource = "access-groups"
 // same type that is provided as a pointer.
 func (in *AccessGroup) DeepCopyInto(out *AccessGroup) {
 	out.TypeMeta = in.TypeMeta
-	out.ObjectMeta = in.ObjectMeta
-	out.Spec = cfgo.AccessGroup{
-		ID:        in.Spec.ID,
-		CreatedAt: in.Spec.CreatedAt,
-		UpdatedAt: in.Spec.UpdatedAt,
-		Name:      in.Spec.Name,
-		Include:   append([]interface{}{}, in.Spec.Include...),
-		Exclude:   append([]interface{}{}, in.Spec.Exclude...),
-		Require:   append([]interface{}{}, in.Spec.Require...),
-	}
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = deepCopyRaw(in.Spec, in.Spec.JSON.RawJSON())
 }
 
 // DeepCopyObject returns a generically typed copy of an object

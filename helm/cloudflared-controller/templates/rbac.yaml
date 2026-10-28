@@ -1,0 +1,61 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cfc.fullname" . }}
+  labels:
+    {{- include "cfc.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["services", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  # tunnel configmaps and credential secrets
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cfc.fullname" . }}
+  labels:
+    {{- include "cfc.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cfc.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cfc.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# leader election
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cfc.fullname" . }}
+  labels:
+    {{- include "cfc.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cfc.fullname" . }}
+  labels:
+    {{- include "cfc.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cfc.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cfc.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
