@@ -99,7 +99,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.10.0
+        uses: helm/kind-action@v1.15.1
 
       - name: Lint helm chart
         run: |
