@@ -3,7 +3,7 @@ module github.com/mabels/cloudflared-controller
 go 1.26.0
 
 require (
-	github.com/cloudflare/cloudflare-go/v7 v7.13.1
+	github.com/cloudflare/cloudflare-go/v7 v7.14.0
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.12.1
 	k8s.io/api v0.37.2
